@@ -453,7 +453,7 @@
   }
   function currentInvoiceData() {
     const items = itemRows().map((row, index) => ({
-      description: row.querySelector(".item-description").value.trim() || `Item ${index + 1}`,
+      description: capitalizeFirstWord(row.querySelector(".item-description").value.trim()) || `Item ${index + 1}`,
       price: Number(row.querySelector(".item-price").value) || 0
     }));
     const total = items.reduce((sum, item) => sum + item.price, 0);
@@ -602,7 +602,10 @@
   }
   function itemRows() { return [...document.querySelectorAll(".item-entry")]; }
   function capitalizeWords(value) {
-    return String(value || "").replace(/(^\s*)([a-z])/, (match, spaces, letter) => spaces + letter.toUpperCase());
+    return String(value || "").replace(/\\b[a-z]/g, letter => letter.toUpperCase());
+  }
+  function capitalizeFirstWord(value) {
+    return String(value || "").replace(/(^\\s*)([a-z])/, (match, spaces, letter) => spaces + letter.toUpperCase());
   }
   function capitalizeLineStarts(value) {
     return String(value || "").split("\n").map(line =>
@@ -615,7 +618,7 @@
     $("regNo").value = $("regNo").value.toUpperCase();
     $("address").value = capitalizeLineStarts($("address").value);
     document.querySelectorAll(".item-description").forEach(el => {
-      el.value = capitalizeWords(el.value);
+      el.value = capitalizeFirstWord(el.value);
     });
   }
 
@@ -647,7 +650,7 @@
   });
   document.addEventListener("focusout", event => {
     if (event.target && event.target.classList && event.target.classList.contains("item-description")) {
-      event.target.value = capitalizeWords(event.target.value);
+      event.target.value = capitalizeFirstWord(event.target.value);
       updatePreview();
     }
   });
@@ -660,17 +663,17 @@
     refreshRemoveButtons(); updatePreview();
   }
   function updatePreview() {
-    $("p-customer").textContent = $("customer").value.trim() || "Customer name";
-    $("p-address").textContent = $("address").value.trim();
+    $("p-customer").textContent = capitalizeWords($("customer").value.trim()) || "Customer name";
+    $("p-address").textContent = capitalizeLineStarts($("address").value.trim());
     $("p-phone").textContent = $("phone").value.trim();
-    $("p-vehicle-model").textContent = $("vehicleModel").value.trim();
-    $("p-reg-no").textContent = $("regNo").value.trim();
+    $("p-vehicle-model").textContent = capitalizeWords($("vehicleModel").value.trim());
+    $("p-reg-no").textContent = $("regNo").value.trim().toUpperCase();
     $("p-date").textContent = formatDate($("date").value);
     $("p-invoice").textContent = $("invoiceNo").value.trim() || "—";
     const tbody = $("p-items"); tbody.replaceChildren();
     let total = 0;
     itemRows().forEach((row, index) => {
-      const description = row.querySelector(".item-description").value.trim() || `Item ${index + 1}`;
+      const description = capitalizeFirstWord(row.querySelector(".item-description").value.trim()) || `Item ${index + 1}`;
       const value = Number(row.querySelector(".item-price").value);
       const price = Number.isFinite(value) ? value : 0; total += price;
       const tr = document.createElement("tr");
