@@ -602,10 +602,10 @@
   }
   function itemRows() { return [...document.querySelectorAll(".item-entry")]; }
   function capitalizeWords(value) {
-    return String(value || "").replace(/\\b[a-z]/g, letter => letter.toUpperCase());
+    return String(value || "").replace(/\b[a-z]/g, letter => letter.toUpperCase());
   }
   function capitalizeFirstWord(value) {
-    return String(value || "").replace(/(^\\s*)([a-z])/, (match, spaces, letter) => spaces + letter.toUpperCase());
+    return String(value || "").replace(/(^\s*)([a-z])/, (match, spaces, letter) => spaces + letter.toUpperCase());
   }
   function capitalizeLineStarts(value) {
     return String(value || "").split("\n").map(line =>
