@@ -183,19 +183,6 @@
   @media(max-width:850px) { .cloud-panel { margin-top:14px; } }
 
 
-  body.authenticated #invoice-app { display:none !important; }
-  body.authenticated.page-invoice #invoice-app { display:grid !important; }
-  body.authenticated.page-payments #payment-register { display:block !important; }
-  body.authenticated.page-dashboard #business-dashboard { display:block !important; }
-  body.authenticated .home-menu { display:block; max-width:760px; margin:34px auto; text-align:center; padding:26px; }
-  .home-menu h2 { margin:0 0 8px; font-size:25px; }
-  .home-menu p { color:#667085; margin:0 0 22px; }
-  .home-menu-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
-  .home-menu-grid button { min-height:90px; font-size:17px; font-weight:700; border-radius:12px; }
-  .page-back-row { display:flex; align-items:center; gap:14px; margin:12px 0; }
-  .invoice-home-button { margin:0 0 10px; }
-  @media(max-width:650px) { .home-menu-grid { grid-template-columns:1fr; } .home-menu-grid button { min-height:58px; } }
-
   body:not(.authenticated) #invoice-app { display:none !important; }
   body:not(.authenticated) .cloud-panel { max-width:520px; margin:8vh auto 0; box-shadow:0 8px 30px rgba(0,0,0,.08); }
   body.authenticated > .cloud-panel { max-width:1200px; margin:14px auto; }
@@ -281,49 +268,9 @@
           <button class="secondary" type="button" onclick="cloudLogout()">Sign out</button>
         </div>
       </div>
-      <nav id="main-home-menu" class="home-menu" hidden aria-label="Main menu">
-        <h2>JC Car Diagnostics</h2>
-        <p>Select a section to continue</p>
-        <div class="home-menu-grid">
-          <button type="button" class="primary" onclick="openAppPage('invoice')">Invoice Page</button>
-          <button type="button" class="secondary" onclick="openAppPage('payments')">Payment Page</button>
-          <button type="button" class="secondary" onclick="openAppPage('dashboard')">Business Dashboard</button>
-        </div>
-      </nav>
-      <div id="page-back-row" class="page-back-row" hidden>
-        <button type="button" class="secondary" onclick="openAppPage('home')">← Home</button>
-        <b id="active-page-title"></b>
-      </div>
       <div class="cloud-actions invoice-cloud-actions">
         <button class="secondary" id="show-invoice-history" type="button" onclick="toggleInvoiceHistory()" disabled>Invoice History</button>
       </div>
-      <section id="payment-register" class="invoice-history" hidden>
-        <button type="button" class="secondary" onclick="openAppPage('home')">← Home</button>
-        <b>Record payment received</b>
-        <label for="pay-customer">Customer name *</label><input id="pay-customer" placeholder="Customer name">
-        <label for="pay-regno">Vehicle registration number *</label><input id="pay-regno" placeholder="TN 46 AB 1234">
-        <label for="pay-date">Payment date *</label><input id="pay-date" type="date">
-        <label for="pay-amount">Amount received (₹) *</label><input id="pay-amount" type="number" min="0.01" step="0.01">
-        <label for="pay-method">Payment method</label><select id="pay-method"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option></select>
-        <label for="pay-remarks">Remarks</label><input id="pay-remarks" placeholder="Advance / part payment">
-        <button class="primary" type="button" onclick="savePaymentRecord()">Save Payment</button>
-        <hr><b>Record amount returned / refund</b>
-        <label for="refund-payment">Select original payment</label><select id="refund-payment"><option value="">Choose a payment</option></select>
-        <label for="refund-date">Refund date</label><input id="refund-date" type="date">
-        <label for="refund-amount">Amount returned (₹)</label><input id="refund-amount" type="number" min="0.01" step="0.01">
-        <label for="refund-method">Refund method</label><select id="refund-method"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Other</option></select>
-        <label for="refund-reason">Reason</label><input id="refund-reason" placeholder="Reason for refund">
-        <button class="secondary" type="button" onclick="saveRefundRecord()">Save Refund</button>
-        <div id="payment-list"></div>
-      </section>
-      <section id="business-dashboard" class="invoice-history" hidden>
-        <button type="button" class="secondary" onclick="openAppPage('home')">← Home</button>
-        <b>Business Dashboard</b>
-        <label for="dash-from">From</label><input id="dash-from" type="date">
-        <label for="dash-to">To</label><input id="dash-to" type="date">
-        <button class="secondary" type="button" onclick="loadBusinessDashboard()">Apply date filter</button>
-        <div id="dashboard-results"></div>
-      </section>
       <div id="invoice-history" class="invoice-history" hidden>
         <div class="history-heading"><b>Saved invoices</b><button type="button" class="text-button" onclick="startNewInvoice()">+ New invoice</button><button type="button" class="text-button" onclick="loadInvoiceHistory()">Refresh</button></div>
         <input id="history-search" type="search" placeholder="Search invoice, customer or vehicle" oninput="filterInvoiceHistory()">
@@ -335,12 +282,7 @@
 <div class="app" id="invoice-app">
   <section class="panel">
     <h1>JC Car Diagnostics</h1>
-    <button type="button" class="secondary invoice-home-button" onclick="openAppPage('home')">← Home</button>
     <p class="hint">Enter the customer and service details. The invoice preview updates automatically.</p>
-
-    <label for="regNo">Vehicle registration number</label>
-    <input id="regNo" placeholder="e.g. HR55 AP6205">
-
 
   
     <label for="customer">Customer name *</label>
@@ -355,6 +297,8 @@
     <label for="vehicleModel">Vehicle model</label>
     <input id="vehicleModel" placeholder="e.g. Maruti Ciaz">
 
+    <label for="regNo">Vehicle registration number</label>
+    <input id="regNo" placeholder="e.g. HR55 AP6205">
 
     <label for="date">Invoice date *</label>
     <input id="date" type="date">
@@ -374,13 +318,6 @@
       <input id="roundoff" type="number" min="0" step="0.01" placeholder="Enter amount to subtract">
       <p class="roundoff-help">The entered amount will be subtracted from the total. Leave blank if not required.</p>
     </div>
-    <section class="advance-entry" style="border:1px solid #ddd;padding:12px;border-radius:8px">
-      <b>Select previous payments for this repair</b>
-      <p class="hint">Enter vehicle registration first, then load and select the payments belonging to this repair.</p>
-      <button class="secondary" type="button" onclick="loadAvailablePaymentsForInvoice()">Find previous payments</button>
-      <div id="available-payments"><small>No payments loaded.</small></div>
-      <p>Selected previous payments: <strong id="selected-payments-total">₹ 0.00</strong></p>
-    </section>
     <div class="advance-entry">
       <label for="advance">Advance received (₹) – optional</label>
       <input id="advance" type="number" min="0" step="0.01" placeholder="Enter advance amount">
@@ -488,16 +425,11 @@
         updateCloudControls();
         if (user) {
           document.body.classList.add("authenticated");
-          document.getElementById("main-home-menu").hidden = false;
-          document.getElementById("page-back-row").hidden = true;
-          openAppPage("home");
           setCloudStatus("Cloud connected", "ready");
           loadInvoiceHistory();
           if (!window.editingInvoiceId) assignNextInvoiceNumber();
         } else {
-          document.body.classList.remove("authenticated","page-invoice","page-payments","page-dashboard");
-          document.getElementById("main-home-menu").hidden = true;
-          document.getElementById("page-back-row").hidden = true;
+          document.body.classList.remove("authenticated");
           setCloudStatus("Please sign in to continue");
           cachedInvoices = [];
           document.getElementById("history-list").innerHTML = '<p class="history-empty">Sign in to view saved invoices.</p>';
@@ -625,7 +557,6 @@
         setCloudStatus("Invoice saved", "ready");
       }
 
-      if(selectedPaymentIds && selectedPaymentIds.size && window.editingInvoiceId) await linkSelectedPayments(window.editingInvoiceId, $("invoiceNo").value.trim());
       await loadInvoiceHistory();
       alert(isEditing ? "Saved invoice updated successfully." : "Invoice saved to the cloud successfully.");
     } catch (e) {
@@ -694,88 +625,19 @@
     setCloudStatus("Saved invoice opened", "ready");
   }
   async function deleteInvoice(encodedId) {
-    if(!cloudUser||!cloudDb)return;const id=decodeURIComponent(encodedId);
-    try{const linked=await cloudDb.collection("payments").where("linkedInvoiceId","==",id).get();let remove=false;
-      if(linked.size){const c=prompt("This invoice has "+linked.size+" linked payment(s). Type KEEP to retain and unlink them, DELETE to permanently delete linked payment records, or CANCEL.");if(c===null||c.trim().toUpperCase()==="CANCEL")return;if(c.trim().toUpperCase()==="DELETE")remove=true;else if(c.trim().toUpperCase()!=="KEEP")return alert("Type KEEP, DELETE or CANCEL.");}
-      else if(!confirm("Permanently delete this saved invoice?"))return;
-      for(const d of linked.docs){if(remove)await d.ref.delete();else await d.ref.update({linkedInvoiceId:null,linkedInvoiceNo:""});}
-      await cloudDb.collection("invoices").doc(id).delete();await loadInvoiceHistory();if(!document.getElementById("payment-register").hidden)await loadPaymentRegister();
-    }catch(e){alert("Could not delete invoice: "+e.message);}
-  }
-  function openAppPage(page) {
-    document.body.classList.remove("page-invoice","page-payments","page-dashboard");
-    const menu=document.getElementById("main-home-menu");
-    const back=document.getElementById("page-back-row");
-    document.getElementById("invoice-app").hidden=true;
-    document.getElementById("payment-register").hidden=true;
-    document.getElementById("business-dashboard").hidden=true;
-    document.getElementById("invoice-history").hidden=true;
-    if(page==="home") {
-      menu.hidden=false; back.hidden=true;
-      return;
-    }
-    menu.hidden=true; back.hidden=false;
-    if(page==="invoice") {
-      document.body.classList.add("page-invoice");
-      document.getElementById("invoice-app").hidden=false;
-      document.getElementById("active-page-title").textContent="Invoice Page";
-    } else if(page==="payments") {
-      document.body.classList.add("page-payments");
-      document.getElementById("payment-register").hidden=false;
-      document.getElementById("active-page-title").textContent="Payment Page";
-      loadPaymentRegister();
-    } else if(page==="dashboard") {
-      document.body.classList.add("page-dashboard");
-      document.getElementById("business-dashboard").hidden=false;
-      document.getElementById("active-page-title").textContent="Business Dashboard";
-      loadBusinessDashboard();
-    }
-  }
-  let cachedPayments = [];
-  let selectedPaymentIds = new Set();
-  function togglePaymentRegister(){const e=document.getElementById("payment-register");e.hidden=!e.hidden;if(!e.hidden)loadPaymentRegister();}
-  function toggleBusinessDashboard(){const e=document.getElementById("business-dashboard");e.hidden=!e.hidden;if(!e.hidden)loadBusinessDashboard();}
-  async function savePaymentRecord(){
-    if(!cloudUser||!cloudDb)return alert("Sign in first.");
-    const customer=document.getElementById("pay-customer").value.trim(),regNo=document.getElementById("pay-regno").value.trim().toUpperCase(),date=document.getElementById("pay-date").value,amount=Number(document.getElementById("pay-amount").value);
-    if(!customer||!regNo||!date||!(amount>0))return alert("Enter customer, vehicle number, date and a valid amount.");
-    try{await cloudDb.collection("payments").add({customer,regNo,date,amount,method:document.getElementById("pay-method").value,remarks:document.getElementById("pay-remarks").value.trim(),linkedInvoiceId:null,linkedInvoiceNo:"",createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById("pay-amount").value="";await loadPaymentRegister();alert("Payment recorded.");}catch(e){alert("Could not save payment: "+e.message);}
-  }
-  async function loadPaymentRegister(){
-    if(!cloudUser||!cloudDb)return;
-    try{
-      const snap=await cloudDb.collection("payments").orderBy("date","desc").get();cachedPayments=snap.docs.map(d=>({id:d.id,...d.data()}));
-      const refundsSnap=await cloudDb.collection("refunds").get(),refunds=refundsSnap.docs.map(d=>d.data()),refundTotals={};
-      refunds.forEach(r=>refundTotals[r.paymentId]=(refundTotals[r.paymentId]||0)+Number(r.amount||0));
-      document.getElementById("refund-payment").innerHTML='<option value="">Choose a payment</option>'+cachedPayments.map(p=>`<option value="${p.id}">${escapeHtml(p.date||"")} · ${escapeHtml(p.customer||"")} · ${escapeHtml(p.regNo||"")} · ${money(Number(p.amount)||0)}</option>`).join("");
-      document.getElementById("payment-list").innerHTML=cachedPayments.length?cachedPayments.map(p=>`<div class="history-record"><b>${escapeHtml(p.customer)} · ${escapeHtml(p.regNo)}</b><br>${escapeHtml(p.date||"")} · ${money(Number(p.amount)||0)} · ${escapeHtml(p.method||"")}<br>${p.linkedInvoiceNo?"Linked: "+escapeHtml(p.linkedInvoiceNo):"Available to link"} · Refunded ${money(refundTotals[p.id]||0)} · Net ${money(Math.max(0,Number(p.amount||0)-(refundTotals[p.id]||0)))}</div>`).join(""):'<p>No payments recorded.</p>';
-    }catch(e){document.getElementById("payment-list").textContent="Could not load payments: "+e.message;}
-  }
-  async function saveRefundRecord(){
-    if(!cloudUser||!cloudDb)return alert("Sign in first.");
-    const paymentId=document.getElementById("refund-payment").value,date=document.getElementById("refund-date").value,amount=Number(document.getElementById("refund-amount").value);
-    if(!paymentId||!date||!(amount>0))return alert("Select original payment, refund date and amount.");
-    try{const p=cachedPayments.find(x=>x.id===paymentId);const rs=await cloudDb.collection("refunds").where("paymentId","==",paymentId).get();const used=rs.docs.reduce((a,d)=>a+Number(d.data().amount||0),0);if(amount>Number(p.amount)-used)return alert("Refund exceeds the remaining payment amount.");await cloudDb.collection("refunds").add({paymentId,customer:p.customer,regNo:p.regNo,date,amount,method:document.getElementById("refund-method").value,reason:document.getElementById("refund-reason").value.trim(),createdAt:firebase.firestore.FieldValue.serverTimestamp()});await loadPaymentRegister();alert("Refund recorded.");}catch(e){alert("Could not save refund: "+e.message);}
-  }
-  async function loadAvailablePaymentsForInvoice(){
-    if(!cloudUser||!cloudDb)return alert("Sign in first.");const regNo=document.getElementById("regNo").value.trim().toUpperCase();if(!regNo)return alert("Enter vehicle registration number first.");
-    try{const snap=await cloudDb.collection("payments").where("regNo","==",regNo).get(),rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(p=>!p.linkedInvoiceId);const box=document.getElementById("available-payments");box.innerHTML=rows.length?rows.map(p=>`<label style="display:block;margin:6px 0"><input type="checkbox" class="previous-payment-check" value="${p.id}" data-amount="${Number(p.amount)||0}" onchange="updateSelectedPaymentTotal()"> ${escapeHtml(p.date||"")} · ${escapeHtml(p.customer||"")} · ${money(Number(p.amount)||0)} · ${escapeHtml(p.method||"")}</label>`).join(""):"<small>No unlinked payments found for this vehicle.</small>";selectedPaymentIds=new Set();updateSelectedPaymentTotal();}catch(e){alert("Could not load previous payments: "+e.message);}
-  }
-  function updateSelectedPaymentTotal(){selectedPaymentIds=new Set([...document.querySelectorAll(".previous-payment-check:checked")].map(x=>x.value));const n=[...document.querySelectorAll(".previous-payment-check:checked")].reduce((a,x)=>a+Number(x.dataset.amount||0),0);document.getElementById("selected-payments-total").textContent=money(n);document.getElementById("advance").value=n?String(n):"";updatePreview();}
-  async function linkSelectedPayments(invoiceId,invoiceNo){for(const id of selectedPaymentIds)await cloudDb.collection("payments").doc(id).update({linkedInvoiceId:invoiceId,linkedInvoiceNo:invoiceNo});}
-  async function loadBusinessDashboard(){
-    if(!cloudUser||!cloudDb)return;const from=document.getElementById("dash-from").value,to=document.getElementById("dash-to").value,inRange=d=>(!from||d>=from)&&(!to||d<=to);
-    try{const [a,b,c]=await Promise.all([cloudDb.collection("invoices").get(),cloudDb.collection("payments").get(),cloudDb.collection("refunds").get()]);const inv=a.docs.map(d=>d.data()).filter(x=>inRange(x.date||"")),pay=b.docs.map(d=>d.data()).filter(x=>inRange(x.date||"")),ref=c.docs.map(d=>d.data()).filter(x=>inRange(x.date||""));const billed=inv.reduce((n,x)=>n+Number(x.grandTotal||0),0),received=pay.reduce((n,x)=>n+Number(x.amount||0),0),returned=ref.reduce((n,x)=>n+Number(x.amount||0),0),due=inv.reduce((n,x)=>n+Math.max(0,Number(x.balanceDue||0)),0);document.getElementById("dashboard-results").innerHTML=`<div class="history-record">Invoices generated: <b>${inv.length}</b></div><div class="history-record">Total billed: <b>${money(billed)}</b></div><div class="history-record">Payments received: <b>${money(received)}</b></div><div class="history-record">Refunds returned: <b>${money(returned)}</b></div><div class="history-record">Net collections: <b>${money(received-returned)}</b></div><div class="history-record">Outstanding balance: <b>${money(due)}</b></div>`;}catch(e){document.getElementById("dashboard-results").textContent="Dashboard error: "+e.message;}
+    if (!cloudUser || !cloudDb) return;
+    const id = decodeURIComponent(encodedId);
+    if (!confirm("Permanently delete this saved invoice?")) return;
+    try {
+      await cloudDb.collection("invoices").doc(id).delete();
+      await loadInvoiceHistory();
+    } catch (e) { alert("Could not delete invoice: " + (e.message || e)); }
   }
   document.addEventListener("DOMContentLoaded", initializeFirebaseCloud);
 </script>
 <script>
   const fields = ["customer","address","phone","vehicleModel","regNo","date","invoiceNo"];
   const $ = id => document.getElementById(id);
-  $("regNo").addEventListener("blur", async () => {
-    if(!cloudUser||!cloudDb)return;const reg=$("regNo").value.trim().toUpperCase();if(!reg)return;
-    try{const snap=await cloudDb.collection("invoices").where("regNo","==",reg).get();if(snap.empty)return;const latest=snap.docs.map(d=>d.data()).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))[0];if(confirm("Existing vehicle record found: "+(latest.customer||"")+" · "+(latest.vehicleModel||"")+".\\n\\nOK: use existing details.\\nCancel: enter new details.")){$("customer").value=latest.customer||"";$("address").value=latest.address||"";$("phone").value=latest.phone||"";$("vehicleModel").value=latest.vehicleModel||"";applyTextCapitalization();updatePreview();}}catch(e){console.warn(e);}
-  });
   $("date").addEventListener("change", () => {
     if (!window.editingInvoiceId) assignNextInvoiceNumber();
   });
