@@ -416,6 +416,7 @@
           document.body.classList.add("authenticated");
           setCloudStatus("Cloud connected", "ready");
           loadInvoiceHistory();
+          if (!window.editingInvoiceId) assignNextInvoiceNumber();
         } else {
           document.body.classList.remove("authenticated");
           setCloudStatus("Please sign in to continue");
@@ -471,9 +472,23 @@
     return invoiceNo.trim().replace(/[\/#?$\[\].]/g, "_").replace(/\s+/g, "_").slice(0, 120) || "invoice";
   }
 
-  // Invoice numbers are allocated only inside the successful cloud-save transaction.
+  // Show the next available number as a preview without changing the Firestore counter.
+  // The actual number is reserved atomically only when Save Invoice Online is clicked.
   async function assignNextInvoiceNumber() {
-    return null;
+    if (!cloudUser || !cloudDb || window.editingInvoiceId) return;
+    const dateValue = $("date").value;
+    const year = dateValue ? dateValue.slice(0, 4) : String(new Date().getFullYear());
+    try {
+      const counterSnap = await cloudDb.collection("invoiceCounters").doc(year).get();
+      const nextNumber = (counterSnap.exists ? Number(counterSnap.data().lastNumber || 0) : 0) + 1;
+      if (!window.editingInvoiceId) {
+        $("invoiceNo").value = `${String(nextNumber).padStart(3, "0")}/${year}`;
+        updatePreview();
+      }
+    } catch (e) {
+      console.error("Could not preview invoice number:", e);
+      setCloudStatus("Could not load next invoice number", "error");
+    }
   }
   async function saveInvoiceToCloud() {
     applyTextCapitalization();
@@ -580,6 +595,7 @@
     $("item-entry-list").replaceChildren(); addItem();
     $("invoiceNo").value = "";
     updatePreview();
+    assignNextInvoiceNumber();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function restoreInvoice(encodedId) {
@@ -611,6 +627,9 @@
 <script>
   const fields = ["customer","address","phone","vehicleModel","regNo","date","invoiceNo"];
   const $ = id => document.getElementById(id);
+  $("date").addEventListener("change", () => {
+    if (!window.editingInvoiceId) assignNextInvoiceNumber();
+  });
   const today = new Date();
   $("date").value = new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
 
