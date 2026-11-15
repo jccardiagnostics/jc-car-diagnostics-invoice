@@ -124,6 +124,7 @@
     .print-thankyou { position:absolute; left:12mm; right:12mm; bottom:12mm; padding-top:4mm; border-top:1px solid #aaa; text-align:center; color:#c8102e; font-size:17pt; font-weight:900; }
   }
   @media print {
+    .cloud-panel { display:none !important; }
     html, body { background:#fff; padding:0; margin:0; width:100%; }
     .app { display:block; max-width:none; }
     .panel { display:none !important; }
@@ -164,17 +165,28 @@
   .danger-button { color:#a12626 !important; border-color:#e6b7b7 !important; }
   @media(max-width:850px) { .cloud-panel { margin-top:14px; } }
 
+
+  body:not(.authenticated) #invoice-app { display:none !important; }
+  body:not(.authenticated) .cloud-panel { max-width:520px; margin:8vh auto 0; box-shadow:0 8px 30px rgba(0,0,0,.08); }
+  body.authenticated > .cloud-panel { max-width:1200px; margin:14px auto; }
+  body.authenticated #cloud-auth-form, body.authenticated .cloud-help { display:none !important; }
+  body.authenticated .cloud-title-row { margin-bottom:0; }
+  body.authenticated .cloud-panel { padding:10px 14px; }
+  body.authenticated .cloud-user-line { display:inline-block; margin:0 12px 0 0; }
+  body.authenticated .invoice-cloud-actions { display:inline-flex; border:0; padding:0; margin:0 0 0 10px; vertical-align:middle; }
+  body.authenticated #invoice-history { max-height:360px; overflow:auto; }
+  .advance-entry { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:12px; }
+  .advance-help { margin:6px 0 0; color:#666; font-size:11px; }
+  .balance-row { display:flex; justify-content:flex-end; gap:18mm; margin-top:3mm; font-size:10pt; font-weight:700; }
+  .preview-advance { display:flex; justify-content:flex-end; gap:18px; font-size:13px; margin:8px 0; }
+  .preview-balance { display:flex; justify-content:flex-end; gap:18px; font-size:15px; font-weight:800; border-top:1px solid #aaa; padding-top:8px; }
+
 </style>
 </head>
 <body>
-<div class="app">
-  <section class="panel">
-    <h1>JC Car Diagnostics</h1>
-    <p class="hint">Enter the customer and service details. The invoice preview updates automatically.</p>
-
-    <section class="cloud-panel" aria-label="Cloud invoice account">
+  <section class="cloud-panel" aria-label="Cloud invoice account">
       <div class="cloud-title-row"><b>☁ Invoice Cloud</b><span id="cloud-status" class="cloud-status">Firebase setup required</span></div>
-      <p class="cloud-help">Sign in to save invoices online and access them from your other devices.</p>
+      <p class="cloud-help">Sign in to access the JC Car Diagnostics invoice system.</p>
       <div id="cloud-auth-form">
         <label for="cloud-email">Email address</label>
         <input id="cloud-email" type="email" autocomplete="username" placeholder="Your email">
@@ -192,17 +204,22 @@
         </div>
       </div>
       <div class="cloud-actions invoice-cloud-actions">
-        <button class="primary" id="save-cloud-invoice" type="button" onclick="saveInvoiceToCloud()" disabled>Save Invoice Online</button>
         <button class="secondary" id="show-invoice-history" type="button" onclick="toggleInvoiceHistory()" disabled>Invoice History</button>
       </div>
       <div id="invoice-history" class="invoice-history" hidden>
-        <div class="history-heading"><b>Saved invoices</b><button type="button" class="text-button" onclick="loadInvoiceHistory()">Refresh</button></div>
+        <div class="history-heading"><b>Saved invoices</b><button type="button" class="text-button" onclick="startNewInvoice()">+ New invoice</button><button type="button" class="text-button" onclick="loadInvoiceHistory()">Refresh</button></div>
         <input id="history-search" type="search" placeholder="Search invoice, customer or vehicle" oninput="filterInvoiceHistory()">
         <div id="history-list"><p class="history-empty">Sign in to view saved invoices.</p></div>
       </div>
       <p class="cloud-setup-note">First-time setup: add your Firebase project configuration in the HTML file. See the setup instructions provided with this file.</p>
     </section>
 
+<div class="app" id="invoice-app">
+  <section class="panel">
+    <h1>JC Car Diagnostics</h1>
+    <p class="hint">Enter the customer and service details. The invoice preview updates automatically.</p>
+
+  
     <label for="customer">Customer name *</label>
     <input id="customer" placeholder="e.g. Murugan" value="">
 
@@ -243,10 +260,16 @@
       <input id="roundoff" type="number" min="0" step="0.01" placeholder="Enter amount to subtract">
       <p class="roundoff-help">The entered amount will be subtracted from the total. Leave blank if not required.</p>
     </div>
+    <div class="advance-entry">
+      <label for="advance">Advance received (₹) – optional</label>
+      <input id="advance" type="number" min="0" step="0.01" placeholder="Enter advance amount">
+      <p class="advance-help">The advance will be deducted after round off to calculate the balance due.</p>
+    </div>
 
     <div class="actions">
       <button class="primary" type="button" onclick="printInvoice()">Download PDF</button>
       <button class="secondary" type="button" onclick="printInvoice()">Print</button>
+      <button class="primary" id="save-cloud-invoice-inline" type="button" onclick="saveInvoiceToCloud()" disabled>Save Invoice Online</button>
     </div>
     <p class="note">Click <b>Download PDF</b>, then choose <b>Save as PDF</b> in your browser's print window. The suggested filename will be the customer's name followed by “Invoice” and the invoice number.</p>
   </section>
@@ -281,6 +304,8 @@
       <div class="total"><span>TOTAL</span><span id="p-total">₹ 0.00</span></div>
       <div class="total"><span>ROUND OFF</span><span id="p-roundoff">—</span></div>
       <div class="total"><span>GRAND TOTAL</span><span id="p-grand-total">₹ 0.00</span></div>
+      <div class="preview-advance"><span>ADVANCE RECEIVED</span><span id="p-advance">₹ 0.00</span></div>
+      <div class="preview-balance"><span>BALANCE DUE</span><span id="p-balance">₹ 0.00</span></div>
       <div class="thankyou">THANK YOU!</div>
     </article>
   </main>
@@ -315,7 +340,8 @@
     const ready = !!cloudUser && !!cloudDb;
     document.getElementById("cloud-auth-form").hidden = ready;
     document.getElementById("cloud-user-area").hidden = !ready;
-    document.getElementById("save-cloud-invoice").disabled = !ready;
+    const saveBtn = document.getElementById("save-cloud-invoice-inline");
+    if (saveBtn) saveBtn.disabled = !ready;
     document.getElementById("show-invoice-history").disabled = !ready;
     document.getElementById("cloud-user-email").textContent = cloudUser ? cloudUser.email : "";
   }
@@ -337,10 +363,13 @@
         cloudUser = user;
         updateCloudControls();
         if (user) {
+          document.body.classList.add("authenticated");
           setCloudStatus("Cloud connected", "ready");
           loadInvoiceHistory();
+          assignNextInvoiceNumber();
         } else {
-          setCloudStatus("Not signed in");
+          document.body.classList.remove("authenticated");
+          setCloudStatus("Please sign in to continue");
           cachedInvoices = [];
           document.getElementById("history-list").innerHTML = '<p class="history-empty">Sign in to view saved invoices.</p>';
         }
@@ -379,16 +408,40 @@
     }));
     const total = items.reduce((sum, item) => sum + item.price, 0);
     const roundOff = Math.max(0, Number($("roundoff").value) || 0);
+    const advance = Math.max(0, Number($("advance").value) || 0);
     return {
       invoiceNo: $("invoiceNo").value.trim(), customer: $("customer").value.trim(),
       address: $("address").value.trim(), phone: $("phone").value.trim(),
       vehicleModel: $("vehicleModel").value.trim(), regNo: $("regNo").value.trim(),
-      date: $("date").value, items, roundOff, total, grandTotal: total - roundOff,
+      date: $("date").value, items, roundOff, advance, total,
+      grandTotal: total - roundOff, balanceDue: total - roundOff - advance,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
   }
   function invoiceDocumentId(invoiceNo) {
     return invoiceNo.trim().replace(/[\/#?$\[\].]/g, "_").replace(/\s+/g, "_").slice(0, 120) || "invoice";
+  }
+
+  async function assignNextInvoiceNumber() {
+    if (!cloudUser || !cloudDb) return;
+    const year = String(new Date().getFullYear());
+    const counterRef = cloudDb.collection("invoiceCounters").doc(year);
+    try {
+      const nextNumber = await cloudDb.runTransaction(async tx => {
+        const snap = await tx.get(counterRef);
+        const next = (snap.exists ? Number(snap.data().lastNumber || 0) : 0) + 1;
+        tx.set(counterRef, { year, lastNumber: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        return next;
+      });
+      // Do not overwrite a number while editing an existing saved invoice.
+      if (!window.editingInvoiceId && !$("invoiceNo").value.trim()) {
+        $("invoiceNo").value = `${String(nextNumber).padStart(3, "0")}/${year}`;
+        updatePreview();
+      }
+    } catch (e) {
+      console.error(e);
+      setCloudStatus("Could not allocate invoice number", "error");
+    }
   }
   async function saveInvoiceToCloud() {
     if (!cloudUser || !cloudDb) return alert("Sign in to save invoices online.");
@@ -396,11 +449,12 @@
     if (!$("customer").value.trim() || !$("date").value || !$("invoiceNo").value.trim()) return alert("Please fill in customer name, invoice date and invoice number.");
     if (!itemRows().length || itemRows().some(row => !row.querySelector(".item-description").value.trim() || !row.querySelector(".item-price").value.trim())) return alert("Enter a description and price for every item.");
     const data = currentInvoiceData();
-    const ref = cloudDb.collection("invoices").doc(invoiceDocumentId(data.invoiceNo));
+    const ref = cloudDb.collection("invoices").doc(window.editingInvoiceId || invoiceDocumentId(data.invoiceNo));
     try {
       const existing = await ref.get();
       if (existing.exists && !confirm("An invoice with this invoice number already exists. Update the saved invoice?")) return;
       await ref.set({ ...data, createdAt: existing.exists ? (existing.data().createdAt || firebase.firestore.FieldValue.serverTimestamp()) : firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      window.editingInvoiceId = ref.id;
       setCloudStatus("Invoice saved", "ready");
       await loadInvoiceHistory();
       alert("Invoice saved to the cloud successfully.");
@@ -430,7 +484,7 @@
         <div class="history-record-top"><span>${escapeHtml(inv.invoiceNo || inv.id)}</span><span>${money(Number(inv.grandTotal) || 0)}</span></div>
         <div class="history-record-meta">${escapeHtml(inv.customer || "")} · ${escapeHtml(formatDate(inv.date || ""))}<br>${escapeHtml(inv.vehicleModel || "")} ${escapeHtml(inv.regNo || "")}</div>
         <div class="history-record-actions">
-          <button class="secondary" type="button" onclick="restoreInvoice('${encodeURIComponent(inv.id)}')">Open</button>
+          <button class="secondary" type="button" onclick="restoreInvoice('${encodeURIComponent(inv.id)}')">Edit</button>
           <button class="secondary danger-button" type="button" onclick="deleteInvoice('${encodeURIComponent(inv.id)}')">Delete</button>
         </div>
       </div>`).join("");
@@ -444,14 +498,25 @@
     panel.hidden = !panel.hidden;
     if (!panel.hidden) loadInvoiceHistory();
   }
+  function startNewInvoice() {
+    window.editingInvoiceId = null;
+    $("customer").value = ""; $("address").value = ""; $("phone").value = "";
+    $("vehicleModel").value = ""; $("regNo").value = ""; $("roundoff").value = ""; $("advance").value = "";
+    $("item-entry-list").replaceChildren(); addItem();
+    $("invoiceNo").value = "";
+    assignNextInvoiceNumber();
+    updatePreview();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   function restoreInvoice(encodedId) {
     const id = decodeURIComponent(encodedId);
     const inv = cachedInvoices.find(x => x.id === id);
     if (!inv) return alert("Invoice not found. Refresh the history list.");
+    window.editingInvoiceId = inv.id;
     $("customer").value = inv.customer || ""; $("address").value = inv.address || "";
     $("phone").value = inv.phone || ""; $("vehicleModel").value = inv.vehicleModel || "";
     $("regNo").value = inv.regNo || ""; $("date").value = inv.date || "";
-    $("invoiceNo").value = inv.invoiceNo || ""; $("roundoff").value = inv.roundOff ? String(inv.roundOff) : "";
+    $("invoiceNo").value = inv.invoiceNo || ""; $("roundoff").value = inv.roundOff ? String(inv.roundOff) : ""; $("advance").value = inv.advance ? String(inv.advance) : "";
     $("item-entry-list").replaceChildren();
     (inv.items || []).forEach(item => addItem(item.description || "", String(item.price ?? "")));
     if (!inv.items || !inv.items.length) addItem();
@@ -537,10 +602,14 @@
     $("entry-total").textContent = money(total);
     const roundOff = Math.max(0, Number($("roundoff").value) || 0);
     $("p-roundoff").textContent = $("roundoff").value.trim() ? money(roundOff) : "—";
+    const advance = Math.max(0, Number($("advance").value) || 0);
     $("p-grand-total").textContent = money(total - roundOff);
+    if ($("p-advance")) $("p-advance").textContent = money(advance);
+    if ($("p-balance")) $("p-balance").textContent = money(total - roundOff - advance);
   }
   fields.forEach(id => $(id).addEventListener("input", updatePreview));
   $("roundoff").addEventListener("input", updatePreview);
+  $("advance").addEventListener("input", updatePreview);
   document.querySelectorAll(".item-description, .item-price").forEach(el => el.addEventListener("input", updatePreview));
 
   function safeFilePart(value) {
@@ -556,7 +625,9 @@
     const total = items.reduce((sum, item) => sum + item.price, 0);
     const roundOffText = $("roundoff").value.trim();
     const roundOff = roundOffText ? Math.max(0, Number(roundOffText) || 0) : 0;
+    const advance = Math.max(0, Number($("advance").value) || 0);
     const grandTotalValue = total - roundOff;
+    const balanceDueValue = grandTotalValue - advance;
     const printRoot = document.createElement("div");
     printRoot.id = "print-pages";
     const pageMax = 8; // Conservative item count keeps rows and totals together on A4.
@@ -609,6 +680,14 @@
         grandTotal.className = "grand-total";
         grandTotal.innerHTML = `<b>GRAND TOTAL</b><b>${money(grandTotalValue)}</b>`;
         content.appendChild(grandTotal);
+        const advanceRow = document.createElement("div");
+        advanceRow.className = "roundoff-row";
+        advanceRow.innerHTML = `<b>ADVANCE RECEIVED</b><b>${money(advance)}</b>`;
+        content.appendChild(advanceRow);
+        const balanceRow = document.createElement("div");
+        balanceRow.className = "balance-row";
+        balanceRow.innerHTML = `<b>BALANCE DUE</b><b>${money(balanceDueValue)}</b>`;
+        content.appendChild(balanceRow);
       }
       page.appendChild(content);
 
