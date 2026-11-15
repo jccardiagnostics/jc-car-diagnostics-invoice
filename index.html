@@ -172,8 +172,11 @@
   body.authenticated #cloud-auth-form, body.authenticated .cloud-help { display:none !important; }
   body.authenticated .cloud-title-row { margin-bottom:0; }
   body.authenticated .cloud-panel { padding:10px 14px; }
-  body.authenticated .cloud-user-line { display:inline-block; margin:0 12px 0 0; }
-  body.authenticated .invoice-cloud-actions { display:inline-flex; border:0; padding:0; margin:0 0 0 10px; vertical-align:middle; }
+  body.authenticated #cloud-user-area { display:flex; align-items:center; justify-content:flex-start; gap:14px; flex-wrap:wrap; margin-top:10px; }
+  body.authenticated .cloud-user-line { display:block; margin:0; }
+  body.authenticated #cloud-user-area .cloud-actions { display:flex; flex:0 0 auto; width:auto; margin:0; gap:12px; }
+  body.authenticated #cloud-user-area .cloud-actions button { flex:0 0 auto; min-width:140px; }
+  body.authenticated .invoice-cloud-actions { display:flex; border:0; padding:0; margin:10px 0 0; gap:12px; }
   body.authenticated #invoice-history { max-height:360px; overflow:auto; }
   .advance-entry { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:12px; }
   .advance-help { margin:6px 0 0; color:#666; font-size:11px; }
@@ -439,8 +442,9 @@
         updatePreview();
       }
     } catch (e) {
-      console.error(e);
-      setCloudStatus("Could not allocate invoice number", "error");
+      console.error("Invoice number allocation failed:", e);
+      const detail = e && e.code ? e.code : (e && e.message ? e.message : "Unknown error");
+      setCloudStatus("Invoice number error: " + detail, "error");
     }
   }
   async function saveInvoiceToCloud() {
@@ -604,8 +608,13 @@
     $("p-roundoff").textContent = $("roundoff").value.trim() ? money(roundOff) : "—";
     const advance = Math.max(0, Number($("advance").value) || 0);
     $("p-grand-total").textContent = money(total - roundOff);
-    if ($("p-advance")) $("p-advance").textContent = money(advance);
-    if ($("p-balance")) $("p-balance").textContent = money(total - roundOff - advance);
+    if ($("p-advance")) {
+      const showAdvance = $("advance").value.trim() !== "" && advance > 0;
+      $("p-advance").parentElement.hidden = !showAdvance;
+      $("p-balance").parentElement.hidden = !showAdvance;
+      $("p-advance").textContent = money(advance);
+      $("p-balance").textContent = money(total - roundOff - advance);
+    }
   }
   fields.forEach(id => $(id).addEventListener("input", updatePreview));
   $("roundoff").addEventListener("input", updatePreview);
@@ -680,14 +689,16 @@
         grandTotal.className = "grand-total";
         grandTotal.innerHTML = `<b>GRAND TOTAL</b><b>${money(grandTotalValue)}</b>`;
         content.appendChild(grandTotal);
-        const advanceRow = document.createElement("div");
-        advanceRow.className = "roundoff-row";
-        advanceRow.innerHTML = `<b>ADVANCE RECEIVED</b><b>${money(advance)}</b>`;
-        content.appendChild(advanceRow);
-        const balanceRow = document.createElement("div");
-        balanceRow.className = "balance-row";
-        balanceRow.innerHTML = `<b>BALANCE DUE</b><b>${money(balanceDueValue)}</b>`;
-        content.appendChild(balanceRow);
+        if (advance > 0) {
+          const advanceRow = document.createElement("div");
+          advanceRow.className = "roundoff-row";
+          advanceRow.innerHTML = `<b>ADVANCE RECEIVED</b><b>${money(advance)}</b>`;
+          content.appendChild(advanceRow);
+          const balanceRow = document.createElement("div");
+          balanceRow.className = "balance-row";
+          balanceRow.innerHTML = `<b>BALANCE DUE</b><b>${money(balanceDueValue)}</b>`;
+          content.appendChild(balanceRow);
+        }
       }
       page.appendChild(content);
 
