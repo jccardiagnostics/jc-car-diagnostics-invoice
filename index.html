@@ -416,7 +416,6 @@
           document.body.classList.add("authenticated");
           setCloudStatus("Cloud connected", "ready");
           loadInvoiceHistory();
-          assignNextInvoiceNumber();
         } else {
           document.body.classList.remove("authenticated");
           setCloudStatus("Please sign in to continue");
@@ -472,44 +471,68 @@
     return invoiceNo.trim().replace(/[\/#?$\[\].]/g, "_").replace(/\s+/g, "_").slice(0, 120) || "invoice";
   }
 
+  // Invoice numbers are allocated only inside the successful cloud-save transaction.
   async function assignNextInvoiceNumber() {
-    if (!cloudUser || !cloudDb) return;
-    const year = String(new Date().getFullYear());
-    const counterRef = cloudDb.collection("invoiceCounters").doc(year);
-    try {
-      const nextNumber = await cloudDb.runTransaction(async tx => {
-        const snap = await tx.get(counterRef);
-        const next = (snap.exists ? Number(snap.data().lastNumber || 0) : 0) + 1;
-        tx.set(counterRef, { year, lastNumber: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        return next;
-      });
-      // Do not overwrite a number while editing an existing saved invoice.
-      if (!window.editingInvoiceId && !$("invoiceNo").value.trim()) {
-        $("invoiceNo").value = `${String(nextNumber).padStart(3, "0")}/${year}`;
-        updatePreview();
-      }
-    } catch (e) {
-      console.error("Invoice number allocation failed:", e);
-      const detail = e && e.code ? e.code : (e && e.message ? e.message : "Unknown error");
-      setCloudStatus("Invoice number error: " + detail, "error");
-    }
+    return null;
   }
   async function saveInvoiceToCloud() {
     applyTextCapitalization();
     if (!cloudUser || !cloudDb) return alert("Sign in to save invoices online.");
     updatePreview();
-    if (!$("customer").value.trim() || !$("date").value || !$("invoiceNo").value.trim()) return alert("Please fill in customer name, invoice date and invoice number.");
+    if (!$("customer").value.trim() || !$("date").value) return alert("Please fill in customer name and invoice date.");
     if (!itemRows().length || itemRows().some(row => !row.querySelector(".item-description").value.trim() || !row.querySelector(".item-price").value.trim())) return alert("Enter a description and price for every item.");
+
     const data = currentInvoiceData();
-    const ref = cloudDb.collection("invoices").doc(window.editingInvoiceId || invoiceDocumentId(data.invoiceNo));
+    const year = String(new Date().getFullYear());
+    const isEditing = !!window.editingInvoiceId;
+
     try {
-      const existing = await ref.get();
-      if (existing.exists && !confirm("An invoice with this invoice number already exists. Update the saved invoice?")) return;
-      await ref.set({ ...data, createdAt: existing.exists ? (existing.data().createdAt || firebase.firestore.FieldValue.serverTimestamp()) : firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      window.editingInvoiceId = ref.id;
-      setCloudStatus("Invoice saved", "ready");
+      if (isEditing) {
+        const ref = cloudDb.collection("invoices").doc(window.editingInvoiceId);
+        await ref.set({
+          ...data,
+          invoiceNo: $("invoiceNo").value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        setCloudStatus("Invoice updated", "ready");
+      } else {
+        const counterRef = cloudDb.collection("invoiceCounters").doc(year);
+        let savedInvoiceNo = "";
+        let savedInvoiceId = "";
+
+        await cloudDb.runTransaction(async tx => {
+          const counterSnap = await tx.get(counterRef);
+          const nextNumber = (counterSnap.exists ? Number(counterSnap.data().lastNumber || 0) : 0) + 1;
+          savedInvoiceNo = `${String(nextNumber).padStart(3, "0")}/${year}`;
+          savedInvoiceId = invoiceDocumentId(savedInvoiceNo);
+          const invoiceRef = cloudDb.collection("invoices").doc(savedInvoiceId);
+          const existingInvoice = await tx.get(invoiceRef);
+          if (existingInvoice.exists) {
+            throw new Error("Invoice " + savedInvoiceNo + " already exists. Please contact support before saving.");
+          }
+
+          const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+          tx.set(counterRef, {
+            year,
+            lastNumber: nextNumber,
+            updatedAt: timestamp
+          }, { merge: true });
+          tx.set(invoiceRef, {
+            ...data,
+            invoiceNo: savedInvoiceNo,
+            createdAt: timestamp,
+            updatedAt: timestamp
+          });
+        });
+
+        $("invoiceNo").value = savedInvoiceNo;
+        window.editingInvoiceId = savedInvoiceId;
+        updatePreview();
+        setCloudStatus("Invoice saved", "ready");
+      }
+
       await loadInvoiceHistory();
-      alert("Invoice saved to the cloud successfully.");
+      alert(isEditing ? "Saved invoice updated successfully." : "Invoice saved to the cloud successfully.");
     } catch (e) {
       console.error(e);
       alert("Could not save invoice: " + (e.message || e));
@@ -556,7 +579,6 @@
     $("vehicleModel").value = ""; $("regNo").value = ""; $("roundoff").value = ""; $("advance").value = "";
     $("item-entry-list").replaceChildren(); addItem();
     $("invoiceNo").value = "";
-    assignNextInvoiceNumber();
     updatePreview();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
