@@ -184,6 +184,50 @@
   .preview-advance { display:flex; justify-content:flex-end; gap:18px; font-size:13px; margin:8px 0; }
   .preview-balance { display:flex; justify-content:flex-end; gap:18px; font-size:15px; font-weight:800; border-top:1px solid #aaa; padding-top:8px; }
 
+
+  body.pdf-render #print-pages { display:block !important; position:fixed !important; left:-12000px !important; top:0 !important; z-index:-1 !important; }
+  body.pdf-render .print-page { width:794px !important; height:1123px !important; min-height:1123px !important; max-height:1123px !important; overflow:hidden !important; box-sizing:border-box !important; background:#fff !important; position:relative !important; }
+  
+    
+    #print-pages { display:block !important; }
+    .print-page { width:210mm; height:297mm; position:relative; page-break-after:always; break-after:page; overflow:hidden; background:#fff; }
+    .print-page:last-child { page-break-after:auto; break-after:auto; }
+    .print-page > .brand { display:block; width:100%; height:auto; margin:0; }
+    .print-content { padding:0 12mm; }
+    .print-content.continuation-content { padding-top:8mm; }
+    .print-invoice-details { display:flex; justify-content:space-between; align-items:end; border-bottom:2px solid #bbb; padding:9mm 0 4mm; margin-bottom:9mm; }
+    .print-invoice-title { color:#c8102e; font-size:30pt; font-weight:900; }
+    .print-meta { text-align:right; font-size:10pt; line-height:1.8; }
+    .print-parties { display:grid; grid-template-columns:1fr 1fr; gap:10mm; margin:0 0 10mm; font-size:11pt; line-height:1.7; }
+    .print-parties p { margin:5mm 0 0; }
+    .print-vehicle { text-align:right; padding-top:7mm; overflow-wrap:anywhere; }
+    .print-vehicle p { margin:0 0 2mm; }
+    .print-customer { min-width:0; }
+    .print-vehicle { min-width:0; }
+    .print-items { width:100%; margin-left:auto; margin-right:auto; table-layout:fixed; border-collapse:collapse; }
+    .print-items col:nth-child(1) { width:9%; }
+    .print-items col:nth-child(2) { width:63%; }
+    .print-items col:nth-child(3) { width:28%; }
+    .print-items thead { display:table-header-group; }
+    .print-items th { padding:3mm 2mm; border-bottom:1px solid #aaa; font-size:9pt; }
+    .print-items th.service-heading { text-align:left !important; font-size:10pt; padding:0 0 3mm !important; }
+    .print-items th.sno-heading, .print-items td.sno-cell { text-align:left !important; }
+    .print-items th.item-heading, .print-items td.item-cell { text-align:left !important; }
+    .print-items th.amount-heading, .print-items td.amount-cell { text-align:right !important; }
+    .print-items td { padding:4mm 2mm; border-bottom:1px solid #ddd; font-size:10pt; vertical-align:middle; }
+    .print-items td.amount-cell { white-space:nowrap; }
+    .page-subtotal { text-align:right; font-weight:700; margin:5mm 0 0; font-size:10pt; }
+    .roundoff-row { display:flex; justify-content:flex-end; gap:18mm; margin-top:3mm; font-size:10pt; }
+    .grand-total { display:flex; justify-content:flex-end; gap:18mm; border-top:1px solid #aaa; padding-top:4mm; margin-top:3mm; font-size:12pt; }
+    .continued { position:absolute; right:12mm; bottom:12mm; text-align:right; font-weight:700; font-size:10pt; }
+    .grand-total { display:flex; justify-content:flex-end; gap:18mm; border-top:1px solid #aaa; padding-top:5mm; margin-top:5mm; font-size:12pt; }
+    .print-thankyou { position:absolute; left:12mm; right:12mm; bottom:12mm; padding-top:4mm; border-top:1px solid #aaa; text-align:center; color:#c8102e; font-size:17pt; font-weight:900; }
+  
+
+
+  #customer, #vehicleModel { text-transform: capitalize; }
+  #regNo { text-transform: uppercase; }
+
 </style>
 </head>
 <body>
@@ -273,6 +317,7 @@
       <button class="primary" type="button" onclick="printInvoice()">Download PDF</button>
       <button class="secondary" type="button" onclick="printInvoice()">Print</button>
       <button class="primary" id="save-cloud-invoice-inline" type="button" onclick="saveInvoiceToCloud()" disabled>Save Invoice Online</button>
+      <button class="secondary" id="share-whatsapp" type="button" onclick="shareInvoiceOnWhatsApp()">Share PDF on WhatsApp</button>
     </div>
     <p class="note">Click <b>Download PDF</b>, then choose <b>Save as PDF</b> in your browser's print window. The suggested filename will be the customer's name followed by “Invoice” and the invoice number.</p>
   </section>
@@ -313,6 +358,8 @@
     </article>
   </main>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -448,6 +495,7 @@
     }
   }
   async function saveInvoiceToCloud() {
+    applyTextCapitalization();
     if (!cloudUser || !cloudDb) return alert("Sign in to save invoices online.");
     updatePreview();
     if (!$("customer").value.trim() || !$("date").value || !$("invoiceNo").value.trim()) return alert("Please fill in customer name, invoice date and invoice number.");
@@ -553,6 +601,24 @@
     return "₹ " + n.toLocaleString("en-IN", {minimumFractionDigits:2, maximumFractionDigits:2});
   }
   function itemRows() { return [...document.querySelectorAll(".item-entry")]; }
+  function capitalizeWords(value) {
+    return String(value || "").replace(/(^\s*)([a-z])/, (match, spaces, letter) => spaces + letter.toUpperCase());
+  }
+  function capitalizeLineStarts(value) {
+    return String(value || "").split("\n").map(line =>
+      line.replace(/^(\s*)(\S)/, (match, spaces, first) => spaces + first.toUpperCase())
+    ).join("\n");
+  }
+  function applyTextCapitalization() {
+    $("customer").value = capitalizeWords($("customer").value);
+    $("vehicleModel").value = capitalizeWords($("vehicleModel").value);
+    $("regNo").value = $("regNo").value.toUpperCase();
+    $("address").value = capitalizeLineStarts($("address").value);
+    document.querySelectorAll(".item-description").forEach(el => {
+      el.value = capitalizeWords(el.value);
+    });
+  }
+
   function refreshRemoveButtons() {
     const rows = itemRows();
     rows.forEach(row => row.querySelector(".remove-item").disabled = rows.length === 1);
@@ -575,6 +641,17 @@
     $("item-entry-list").appendChild(row);
     desc.addEventListener("input", updatePreview);
     amount.addEventListener("input", updatePreview);
+  
+  ["customer","vehicleModel","regNo","address"].forEach(id => {
+    $(id).addEventListener("blur", () => { applyTextCapitalization(); updatePreview(); });
+  });
+  document.addEventListener("focusout", event => {
+    if (event.target && event.target.classList && event.target.classList.contains("item-description")) {
+      event.target.value = capitalizeWords(event.target.value);
+      updatePreview();
+    }
+  });
+
     refreshRemoveButtons(); updatePreview();
   }
   function removeItem(button) {
@@ -720,7 +797,71 @@
   function escapeHtml(value) {
     return String(value || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
+
+  async function shareInvoiceOnWhatsApp() {
+    applyTextCapitalization();
+    updatePreview();
+    for (const id of ["customer","date","invoiceNo"]) {
+      if (!$(id).value.trim()) { alert("Please fill in customer name, invoice date and invoice number."); $(id).focus(); return; }
+    }
+    for (const row of itemRows()) {
+      if (!row.querySelector(".item-description").value.trim() || !row.querySelector(".item-price").value.trim()) {
+        alert("Please enter a description and price for every item."); row.querySelector(".item-description").focus(); return;
+      }
+    }
+    if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF sharing libraries could not load. Check your internet connection and try again.");
+      return;
+    }
+    const button = $("share-whatsapp");
+    const oldLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Preparing PDF...";
+    let root;
+    try {
+      root = makePrintPages();
+      document.body.appendChild(root);
+      document.body.classList.add("pdf-render");
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
+      const pages = Array.from(root.querySelectorAll(".print-page"));
+      for (let index=0; index<pages.length; index++) {
+        const canvas = await html2canvas(pages[index], {
+          scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false,
+          width:794, height:1123, windowWidth:794
+        });
+        const image = canvas.toDataURL("image/jpeg", 0.94);
+        if (index > 0) pdf.addPage("a4","portrait");
+        pdf.addImage(image,"JPEG",0,0,210,297,undefined,"FAST");
+        canvas.width=1; canvas.height=1;
+      }
+      const blob = pdf.output("blob");
+      const fileName = `${safeFilePart($("customer").value)} Invoice ${safeFilePart($("invoiceNo").value)}.pdf`;
+      const file = new File([blob], fileName, { type:"application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share) {
+        await navigator.share({ files:[file], title:fileName, text:`Invoice ${$("invoiceNo").value} from JC Car Diagnostics` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href=url; a.download=fileName; a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        alert("This browser cannot share PDF files directly. The PDF has been downloaded. Open WhatsApp and attach it to the customer's chat.");
+      }
+    } catch (error) {
+      if (error && error.name !== "AbortError") {
+        console.error("WhatsApp PDF share failed:", error);
+        alert("Could not prepare or share the PDF. Please try Download PDF, then attach it in WhatsApp.");
+      }
+    } finally {
+      document.body.classList.remove("pdf-render");
+      if (root) root.remove();
+      button.disabled=false;
+      button.textContent=oldLabel;
+    }
+  }
   function printInvoice() {
+    applyTextCapitalization();
     updatePreview();
     for (const id of ["customer","date","invoiceNo"]) {
       if (!$(id).value.trim()) { alert("Please fill in all required fields."); $(id).focus(); return; }
