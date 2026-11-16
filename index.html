@@ -381,7 +381,7 @@ body > .cloud-panel {
   <input id="jobcard-search" type="search" placeholder="Search job card, customer or vehicle number" oninput="filterJobCards()">
   <div id="jobcard-list"><p class="hint">Sign in to view job cards.</p></div>
   <div id="jobcard-editor" class="module-section" hidden>
-    <div class="module-head"><h3 id="jobcard-editor-title">New Job Card</h3><div class="module-actions" style="align-items:center"><label for="jc-status" style="margin:0">Status</label><select id="jc-status" style="min-width:150px"><option>Open</option><option>Work in Progress</option><option>Work Completed</option><option>Invoiced</option><option>Closed</option></select><button class="primary small-btn" onclick="saveJobCard()">Save</button><button class="secondary small-btn" onclick="cancelJobCardEdit()">Cancel</button></div></div>
+    <div class="module-head"><h3 id="jobcard-editor-title">New Job Card</h3><div class="module-actions" style="align-items:center"><label for="jc-status" style="margin:0">Status</label><select id="jc-status" style="min-width:150px"><option>Open</option><option>Work in Progress</option><option>Work Completed</option><option>Invoiced</option><option>Closed</option></select><button class="secondary small-btn" type="button" onclick="previewJobCard()">Preview / PDF</button><button class="primary small-btn" onclick="saveJobCard()">Save</button><button class="secondary small-btn" onclick="cancelJobCardEdit()">Cancel</button></div></div>
     <div class="module-grid">
       <div><label>Job Card Number</label><input id="jc-number" readonly placeholder="Assigned when saved"></div>
       <div><label>Date received *</label><input id="jc-date" type="date"></div>
@@ -413,6 +413,20 @@ body > .cloud-panel {
     <div class="module-actions" style="margin-top:16px"><button class="secondary" onclick="closeJobCardFromEditor()">Close Job Card</button></div>
   </div>
 </section>
+
+
+<div id="jobcard-preview-modal" class="jc-picker-backdrop" hidden>
+  <div class="jc-picker-dialog jc-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="jc-preview-title">
+    <div class="module-head"><h3 id="jc-preview-title">Job Card Preview</h3><button type="button" class="secondary small-btn" onclick="closeJobCardPreview()">Close</button></div>
+    <div class="jc-preview-actions">
+      <button type="button" class="primary small-btn" onclick="downloadJobCardPDF()">Download PDF</button>
+      <button type="button" class="secondary small-btn" onclick="printJobCardPDF()">Print / Save PDF</button>
+      <button type="button" class="primary small-btn" onclick="saveJobCard()">Save Online</button>
+      <button type="button" class="secondary small-btn" onclick="shareJobCardPDF()">Share PDF</button>
+    </div>
+    <div id="jobcard-preview-content" class="jc-print-sheet"></div>
+  </div>
+</div>
 
 <section class="module-page" id="analytics-page" hidden>
   <div class="module-head"><h2>Income Analytics</h2><button class="secondary small-btn" onclick="goHome()">Home</button></div>
@@ -1129,7 +1143,7 @@ function openModule(name) {
   if (name === "jobcards") loadJobCards();
   if (name === "analytics") loadAnalytics();
   if (name === "invoices") {
-    if (!window.editingInvoiceId) startNewInvoice();
+    if (!window.editingInvoiceId && !window.activeJobCardId) startNewInvoice();
     invoice.hidden = false;
   }
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1239,6 +1253,127 @@ async function loadJobCards() {
     renderJobCards(cachedJobCards);
   } catch(e){list.innerHTML='<p class="hint">Could not load job cards. Check Firestore rules for the jobCards collection.</p>';console.error(e);}
 }
+
+async function deleteJobCard(id) {
+  const j=cachedJobCards.find(x=>x.id===id);
+  if(!j)return;
+  const linked=j.invoiceId ? "\n\nThis job card is linked to an invoice. Deleting the job card will NOT delete the invoice." : "";
+  if(!confirm("Permanently delete job card "+(j.jobCardNo||id)+"?"+linked))return;
+  try {
+    await cloudDb.collection("jobCards").doc(id).delete();
+    if(editingJobCardId===id)cancelJobCardEdit();
+    await loadJobCards();
+    alert("Job card deleted.");
+  } catch(e) {
+    alert("Could not delete job card: "+(e.message||e));
+  }
+}
+function jcPreviewEscape(value) {
+  return String(value??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function buildJobCardPreviewHTML() {
+  applyJobCardCapitalization();
+  const d=collectJobCardForm();
+  const rows=(d.works||[]).map((w,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(w.description)}</td><td>${jcPreviewEscape(w.status)}</td></tr>`).join("");
+  const parts=(d.parts||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(p.description)}</td><td>${jcPreviewEscape(p.quantity)}</td><td>₹ ${Number(p.unitPrice||0).toFixed(2)}</td><td>₹ ${(Number(p.quantity||0)*Number(p.unitPrice||0)).toFixed(2)}</td></tr>`).join("");
+  const line=(label,value)=>`<div class="jc-preview-field"><b>${label}</b><span>${jcPreviewEscape(value||"—")}</span></div>`;
+  return `<div class="jc-paper">
+    <div class="jc-paper-header"><div><h1>JC CAR DIAGNOSTICS</h1><p>VEHICLE SERVICE JOB CARD</p></div><div class="jc-paper-number"><b>${jcPreviewEscape(d.jobCardNo||"Draft Job Card")}</b><br>${jcPreviewEscape(formatDate(d.date))}</div></div>
+    <div class="jc-preview-section"><h3>Customer & Vehicle Details</h3><div class="jc-preview-grid">
+      ${line("Customer",d.customer)}${line("Phone",d.phone)}${line("Vehicle",d.vehicleModel)}${line("Registration",d.regNo)}${line("Odometer",d.odometer)}${line("Fuel Level",d.fuelLevel)}${line("Date Received",formatDate(d.date))}${line("Expected Delivery",formatDate(d.expectedDelivery))}${line("Job Card Status",d.status)}
+    </div></div>
+    <div class="jc-preview-section"><h3>Customer Complaints / Requested Work</h3><p class="jc-preline">${jcPreviewEscape(d.complaints||"—")}</p></div>
+    <div class="jc-preview-section"><h3>Initial Inspection / Vehicle Condition</h3><p class="jc-preline">${jcPreviewEscape(d.inspection||"—")}</p></div>
+    <div class="jc-preview-section"><h3>Works to be Performed</h3><table><thead><tr><th>#</th><th>Work Description</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="3">No work items recorded</td></tr>'}</tbody></table></div>
+    <div class="jc-preview-section"><h3>Parts Used</h3><table><thead><tr><th>#</th><th>Part Description</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead><tbody>${parts||'<tr><td colspan="5">No parts recorded</td></tr>'}</tbody></table></div>
+    <div class="jc-preview-section"><h3>Technician Remarks</h3><p class="jc-preline">${jcPreviewEscape(d.remarks||"—")}</p></div>
+    <div class="jc-paper-sign"><span>Customer Signature</span><span>Authorized Signature</span></div>
+    <div class="jc-paper-footer">JC Car Diagnostics · Job Card ${jcPreviewEscape(d.jobCardNo||"Draft")}</div>
+  </div>`;
+}
+function previewJobCard() {
+  document.getElementById("jobcard-preview-content").innerHTML=buildJobCardPreviewHTML();
+  document.getElementById("jobcard-preview-modal").hidden=false;
+}
+function closeJobCardPreview() {
+  document.getElementById("jobcard-preview-modal").hidden=true;
+}
+function jobCardPDFName() {
+  const customer=document.getElementById("jc-customer").value.trim().replace(/[^a-z0-9]+/gi,"_")||"Customer";
+  const no=document.getElementById("jc-number").value.trim()||"Draft";
+  return `${customer}_Job_Card_${no}.pdf`;
+}
+async function createJobCardPDFBlob() {
+  if(!window.html2canvas||!window.jspdf||!window.jspdf.jsPDF)throw new Error("PDF libraries are unavailable. Check your internet connection.");
+  if(document.getElementById("jobcard-preview-modal").hidden)previewJobCard();
+  const target=document.querySelector("#jobcard-preview-content .jc-paper");
+  const canvas=await html2canvas(target,{scale:2,backgroundColor:"#ffffff",useCORS:true});
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
+  const width=190,height=canvas.height*width/canvas.width;
+  let y=5,remaining=height;
+  const image=canvas.toDataURL("image/jpeg",0.94);
+  while(remaining>0){
+    const sliceHeight=Math.min(remaining,287);
+    pdf.addImage(image,"JPEG",10,y-(height-remaining),width,height);
+    remaining-=sliceHeight;
+    if(remaining>0){pdf.addPage();y=5;}
+  }
+  return pdf;
+}
+async function downloadJobCardPDF() {
+  try {const pdf=await createJobCardPDFBlob();pdf.save(jobCardPDFName());}
+  catch(e){alert("Could not create job card PDF: "+(e.message||e));}
+}
+function printJobCardPDF() {
+  if(document.getElementById("jobcard-preview-modal").hidden)previewJobCard();
+  const content=document.getElementById("jobcard-preview-content").innerHTML;
+  const win=window.open("","_blank");
+  if(!win){alert("Please allow pop-ups to print the job card.");return;}
+  win.document.write(`<!doctype html><html><head><title>${jobCardPDFName()}</title><meta charset="utf-8"><style>${jobCardPrintCSS()}
+.jc-preview-dialog{width:min(900px,100%);max-height:92vh}
+.jc-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}
+#jobcard-preview-content{background:#e9edf2;padding:14px;overflow:auto}
+.jc-paper{background:#fff;color:#222;max-width:800px;margin:0 auto;padding:28px;box-shadow:0 2px 10px rgba(0,0,0,.08);font-family:Arial,sans-serif}
+.jc-paper-header{display:flex;justify-content:space-between;border-bottom:3px solid #c8102e;padding-bottom:12px}
+.jc-paper-header h1{margin:0;font-size:22px}
+.jc-paper-header p{margin:4px 0;font-size:12px;letter-spacing:2px}
+.jc-paper-number{text-align:right;font-size:12px}
+.jc-preview-section{margin:16px 0}
+.jc-preview-section h3{font-size:13px;background:#f1f2f4;padding:8px;margin:0 0 8px}
+.jc-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+.jc-preview-field{display:flex;gap:8px;font-size:11px}
+.jc-preview-field b{min-width:120px}
+.jc-preline{white-space:pre-wrap;font-size:11px;min-height:18px}
+.jc-paper table{width:100%;border-collapse:collapse;font-size:10px}
+.jc-paper th,.jc-paper td{border:1px solid #bbb;padding:7px;text-align:left}
+.jc-paper th{background:#f5f5f5}
+.jc-paper-sign{display:flex;justify-content:space-between;margin-top:55px}
+.jc-paper-sign span{border-top:1px solid #555;width:38%;text-align:center;padding-top:7px;font-size:11px}
+.jc-paper-footer{text-align:center;border-top:1px solid #aaa;margin-top:28px;padding-top:8px;font-size:9px;color:#666}
+
+</style></head><body>${content}<script>window.onload=()=>window.print()<\/script></body></html>`);
+  win.document.close();
+}
+function jobCardPrintCSS() {
+  return `@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;color:#222}.jc-paper{width:100%;box-sizing:border-box}.jc-paper-header{display:flex;justify-content:space-between;border-bottom:3px solid #c8102e;padding-bottom:12px}.jc-paper-header h1{margin:0;font-size:22px}.jc-paper-header p{margin:4px 0;font-size:12px;letter-spacing:2px}.jc-paper-number{text-align:right}.jc-preview-section{margin:16px 0;page-break-inside:avoid}.jc-preview-section h3{font-size:13px;background:#f1f2f4;padding:8px;margin:0 0 8px}.jc-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}.jc-preview-field{display:flex;gap:8px;font-size:11px}.jc-preview-field b{min-width:120px}.jc-preline{white-space:pre-wrap;font-size:11px;min-height:18px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#f5f5f5}.jc-paper-sign{display:flex;justify-content:space-between;margin-top:55px}.jc-paper-sign span{border-top:1px solid #555;width:38%;text-align:center;padding-top:7px;font-size:11px}.jc-paper-footer{text-align:center;border-top:1px solid #aaa;margin-top:28px;padding-top:8px;font-size:9px;color:#666}`;
+}
+async function shareJobCardPDF() {
+  try {
+    const pdf=await createJobCardPDFBlob();
+    const blob=pdf.output("blob");
+    const file=new File([blob],jobCardPDFName(),{type:"application/pdf"});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"Job Card "+(document.getElementById("jc-number").value||""),text:"JC Car Diagnostics Job Card"});
+    } else {
+      pdf.save(jobCardPDFName());
+      const text=encodeURIComponent("JC Car Diagnostics Job Card: "+(document.getElementById("jc-number").value||"")+". I have downloaded the PDF and will attach it here.");
+      window.open("https://wa.me/?text="+text,"_blank");
+      alert("Your browser cannot attach a PDF directly to WhatsApp. The PDF has been downloaded; attach it in the WhatsApp chat.");
+    }
+  } catch(e) {alert("Could not share job card PDF: "+(e.message||e));}
+}
+
 function renderJobCards(cards) {
   const list=document.getElementById("jobcard-list");
   if(!cards.length){list.innerHTML='<p class="hint">No job cards found.</p>';return;}
@@ -1248,6 +1383,7 @@ function renderJobCards(cards) {
     <div class="job-card-actions">
       <button class="secondary small-btn" onclick="editJobCard('${j.id}')">Open / Edit</button>
       <button class="primary small-btn" onclick="invoiceFromJobCard('${j.id}')">${j.invoiceId?"View / Edit Invoice":"Create Invoice"}</button>
+      <button class="danger-button secondary small-btn" onclick="deleteJobCard('${j.id}')">Delete Job Card</button>
       ${j.invoiceId?`<button class="secondary small-btn" onclick="deleteInvoiceFromJobCard('${j.id}')">Delete Invoice</button>`:""}
       ${j.status!=="Closed"?`<button class="secondary small-btn" onclick="closeJobCard('${j.id}')">Close Job Card</button>`:""}
     </div></div>`).join("");
@@ -1316,9 +1452,11 @@ async function invoiceFromJobCard(id) {
     alert("The job card refers to invoice ID "+j.invoiceId+", but that invoice document is not present in the invoices collection. The job card link has been preserved.");
     return;
   }
+  window.activeJobCardId=id;window.currentInvoiceJobCardId=id;activeJobCard=j;
   startNewInvoice();
   window.activeJobCardId=id;window.currentInvoiceJobCardId=id;activeJobCard=j;
   $("customer").value=j.customer||"";$("phone").value=j.phone||"";$("vehicleModel").value=j.vehicleModel||"";$("regNo").value=j.regNo||"";
+  $("date").value=todayISO();
   $("recommendation").value="";
   $("item-entry-list").replaceChildren();
   const candidates=[...(j.works||[]).filter(w=>w.status==="Completed").map(w=>({kind:"work",description:w.description,price:""})),
