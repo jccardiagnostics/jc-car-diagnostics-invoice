@@ -410,7 +410,13 @@ body > .cloud-panel {
       <label>Technician remarks</label><textarea id="jc-remarks"></textarea>
 
     </div>
-    <div class="module-actions" style="margin-top:16px"><button class="secondary" onclick="closeJobCardFromEditor()">Close Job Card</button></div>
+    <div class="module-actions jc-bottom-actions" style="margin-top:20px">
+      <button class="primary" type="button" onclick="downloadJobCardPDF()">Download PDF</button>
+      <button class="secondary" type="button" onclick="printJobCardPDF()">Print / Save PDF</button>
+      <button class="primary" type="button" onclick="saveJobCard()">Save Online</button>
+      <button class="secondary" type="button" onclick="shareJobCardPDF()">Share PDF</button>
+      <button class="secondary" type="button" onclick="closeJobCardFromEditor()">Close Job Card</button>
+    </div>
   </div>
 </section>
 
@@ -1277,8 +1283,10 @@ function buildJobCardPreviewHTML() {
   const rows=(d.works||[]).map((w,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(w.description)}</td><td>${jcPreviewEscape(w.status)}</td></tr>`).join("");
   const parts=(d.parts||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(p.description)}</td><td>${jcPreviewEscape(p.quantity)}</td><td>₹ ${Number(p.unitPrice||0).toFixed(2)}</td><td>₹ ${(Number(p.quantity||0)*Number(p.unitPrice||0)).toFixed(2)}</td></tr>`).join("");
   const line=(label,value)=>`<div class="jc-preview-field"><b>${label}</b><span>${jcPreviewEscape(value||"—")}</span></div>`;
+  const invoiceBrand = document.querySelector("#invoice .brand");
+  const invoiceHeaderHTML = invoiceBrand ? invoiceBrand.outerHTML : '<div class="jc-paper-fallback-brand">JC CAR DIAGNOSTICS</div>';
   return `<div class="jc-paper">
-    <div class="jc-paper-header"><div><h1>JC CAR DIAGNOSTICS</h1><p>VEHICLE SERVICE JOB CARD</p></div><div class="jc-paper-number"><b>${jcPreviewEscape(d.jobCardNo||"Draft Job Card")}</b><br>${jcPreviewEscape(formatDate(d.date))}</div></div>
+    <div class="jc-paper-header"><div class="jc-paper-brand">${invoiceHeaderHTML}<div class="jc-paper-subtitle">VEHICLE SERVICE JOB CARD</div></div><div class="jc-paper-number"><b>${jcPreviewEscape(d.jobCardNo||"Draft Job Card")}</b><br>${jcPreviewEscape(formatDate(d.date))}</div></div>
     <div class="jc-preview-section"><h3>Customer & Vehicle Details</h3><div class="jc-preview-grid">
       ${line("Customer",d.customer)}${line("Phone",d.phone)}${line("Vehicle",d.vehicleModel)}${line("Registration",d.regNo)}${line("Odometer",d.odometer)}${line("Fuel Level",d.fuelLevel)}${line("Date Received",formatDate(d.date))}${line("Expected Delivery",formatDate(d.expectedDelivery))}${line("Job Card Status",d.status)}
     </div></div>
@@ -1351,6 +1359,15 @@ function printJobCardPDF() {
 .jc-paper-sign{display:flex;justify-content:space-between;margin-top:55px}
 .jc-paper-sign span{border-top:1px solid #555;width:38%;text-align:center;padding-top:7px;font-size:11px}
 .jc-paper-footer{text-align:center;border-top:1px solid #aaa;margin-top:28px;padding-top:8px;font-size:9px;color:#666}
+
+
+.jc-paper-brand{flex:1;min-width:0;padding-right:12px}
+.jc-paper-brand .brand{display:block;width:100%;max-width:100%;height:auto;max-height:105px;object-fit:contain;object-position:left center}
+.jc-paper-subtitle{font-size:11px;letter-spacing:2px;font-weight:700;margin-top:5px;color:#333}
+.jc-paper-fallback-brand{font-size:22px;font-weight:800}
+.jc-paper-header{align-items:center;gap:16px}
+.jc-bottom-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:650px){.jc-bottom-actions button{flex:1 1 calc(50% - 8px)}}
 
 </style></head><body>${content}<script>window.onload=()=>window.print()<\/script></body></html>`);
   win.document.close();
