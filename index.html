@@ -317,7 +317,7 @@
         </div>
       </div>
       <div class="cloud-actions invoice-cloud-actions">
-        <button class="secondary" id="show-invoice-history" type="button" onclick="toggleInvoiceHistory()" disabled>Invoice History</button>
+        <button class="secondary" id="global-home-button" type="button" onclick="goHome()">Home</button>
       </div>
       <div id="invoice-history" class="invoice-history" hidden>
         <div class="history-heading"><b>Saved invoices</b><button type="button" class="text-button" onclick="startNewInvoice()">+ New invoice</button><button type="button" class="text-button" onclick="loadInvoiceHistory()">Refresh</button></div>
@@ -1068,6 +1068,7 @@ let editingJobCardId = null;
 let activeJobCard = null;
 function openModule(name) {
   document.getElementById("main-home-menu").hidden = true;
+  if (name !== "invoices") document.getElementById("invoice-history").hidden = true;
   document.getElementById("invoice-app").hidden = name !== "invoices";
   document.getElementById("jobcards-page").hidden = name !== "jobcards";
   document.getElementById("analytics-page").hidden = name !== "analytics";
@@ -1077,6 +1078,7 @@ function openModule(name) {
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function goHome() {
+  document.getElementById("invoice-history").hidden = true;
   document.getElementById("invoice-app").hidden = true;
   document.getElementById("jobcards-page").hidden = true;
   document.getElementById("analytics-page").hidden = true;
