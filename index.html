@@ -184,7 +184,7 @@
   @media(max-width:850px) { .cloud-panel { margin-top:14px; } }
 
 
-  body:not(.authenticated) #invoice-app { display:none !important; }
+  
   body:not(.authenticated) .cloud-panel { max-width:520px; margin:8vh auto 0; box-shadow:0 8px 30px rgba(0,0,0,.08); }
   body.authenticated > .cloud-panel { max-width:1200px; margin:14px auto; }
   body.authenticated #cloud-auth-form, body.authenticated .cloud-help { display:none !important; }
@@ -1070,14 +1070,27 @@ let cachedJobCards = [];
 let editingJobCardId = null;
 let activeJobCard = null;
 function openModule(name) {
-  document.getElementById("main-home-menu").hidden = true;
-  if (name !== "invoices") document.getElementById("invoice-history").hidden = true;
-  document.getElementById("invoice-app").hidden = name !== "invoices";
-  document.getElementById("jobcards-page").hidden = name !== "jobcards";
-  document.getElementById("analytics-page").hidden = name !== "analytics";
+  if (!cloudUser || !cloudDb) {
+    alert("Your Firebase sign-in is not ready. Please sign in again and wait until the cloud status shows Connected.");
+    return;
+  }
+  document.body.classList.add("authenticated");
+  const home = document.getElementById("main-home-menu");
+  const invoice = document.getElementById("invoice-app");
+  const jobcards = document.getElementById("jobcards-page");
+  const analytics = document.getElementById("analytics-page");
+  const history = document.getElementById("invoice-history");
+  home.hidden = true;
+  history.hidden = true;
+  invoice.hidden = name !== "invoices";
+  jobcards.hidden = name !== "jobcards";
+  analytics.hidden = name !== "analytics";
   if (name === "jobcards") loadJobCards();
   if (name === "analytics") loadAnalytics();
-  if (name === "invoices") { document.getElementById("invoice-history").hidden = true; }
+  if (name === "invoices") {
+    if (!window.editingInvoiceId) startNewInvoice();
+    invoice.hidden = false;
+  }
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function goHome() {
@@ -1341,7 +1354,6 @@ deleteInvoice=async function(encodedId){
 };
 document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("main-home-menu").hidden=true;
-  initializeFirebaseCloud();
 });
 </script>
 
