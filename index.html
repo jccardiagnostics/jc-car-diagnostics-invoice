@@ -381,7 +381,7 @@ body > .cloud-panel {
   <input id="jobcard-search" type="search" placeholder="Search job card, customer or vehicle number" oninput="filterJobCards()">
   <div id="jobcard-list"><p class="hint">Sign in to view job cards.</p></div>
   <div id="jobcard-editor" class="module-section" hidden>
-    <div class="module-head"><h3 id="jobcard-editor-title">New Job Card</h3><div class="module-actions" style="align-items:center"><label for="jc-status" style="margin:0">Status</label><select id="jc-status" style="min-width:150px"><option>Open</option><option>Work in Progress</option><option>Work Completed</option><option>Invoiced</option><option>Closed</option></select><button class="secondary small-btn" type="button" onclick="previewJobCard()">Preview / PDF</button><button class="primary small-btn" onclick="saveJobCard()">Save</button><button class="secondary small-btn" onclick="cancelJobCardEdit()">Cancel</button></div></div>
+    <div class="module-head"><h3 id="jobcard-editor-title">New Job Card</h3><div class="module-actions" style="align-items:center"><label for="jc-status" style="margin:0">Status</label><select id="jc-status" style="min-width:150px"><option>Open</option><option>Work in Progress</option><option>Work Completed</option><option>Invoiced</option><option>Closed</option></select><button class="secondary small-btn" type="button" onclick="previewJobCard()">Preview</button><button class="primary small-btn" onclick="saveJobCard()">Save</button><button class="secondary small-btn" onclick="cancelJobCardEdit()">Cancel</button></div></div>
     <div class="module-grid">
       <div><label>Job Card Number</label><input id="jc-number" readonly placeholder="Assigned when saved"></div>
       <div><label>Date received *</label><input id="jc-date" type="date"></div>
@@ -411,6 +411,7 @@ body > .cloud-panel {
 
     </div>
     <div class="module-actions jc-bottom-actions" style="margin-top:20px">
+      <button class="secondary" type="button" onclick="previewJobCard()">Preview</button>
       <button class="primary" type="button" onclick="downloadJobCardPDF()">Download PDF</button>
       <button class="secondary" type="button" onclick="printJobCardPDF()">Print / Save PDF</button>
       <button class="primary" type="button" onclick="saveJobCard()">Save Online</button>
@@ -1280,23 +1281,44 @@ function jcPreviewEscape(value) {
 function buildJobCardPreviewHTML() {
   applyJobCardCapitalization();
   const d=collectJobCardForm();
-  const rows=(d.works||[]).map((w,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(w.description)}</td><td>${jcPreviewEscape(w.status)}</td></tr>`).join("");
-  const parts=(d.parts||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${jcPreviewEscape(p.description)}</td><td>${jcPreviewEscape(p.quantity)}</td><td>₹ ${Number(p.unitPrice||0).toFixed(2)}</td><td>₹ ${(Number(p.quantity||0)*Number(p.unitPrice||0)).toFixed(2)}</td></tr>`).join("");
-  const line=(label,value)=>`<div class="jc-preview-field"><b>${label}</b><span>${jcPreviewEscape(value||"—")}</span></div>`;
-  const invoiceBrand = document.querySelector("#invoice .brand");
-  const invoiceHeaderHTML = invoiceBrand ? invoiceBrand.outerHTML : '<div class="jc-paper-fallback-brand">JC CAR DIAGNOSTICS</div>';
+  const invoiceBrand=document.querySelector("#invoice .brand");
+  const invoiceHeaderHTML=invoiceBrand?invoiceBrand.outerHTML:'<div class="jc-paper-fallback-brand">JC CAR DIAGNOSTICS</div>';
+  const safe=jcPreviewEscape;
+  const detailCell=(label,value)=>`<th>${label}</th><td>${safe(value||"—")}</td>`;
+  const works=(d.works||[]).map((w,i)=>`<tr><td class="jc-num">${i+1}</td><td>${safe(w.description)}</td><td><span class="jc-status-tag">${safe(w.status)}</span></td></tr>`).join("");
+  const parts=(d.parts||[]).map((p,i)=>`<tr><td class="jc-num">${i+1}</td><td>${safe(p.description)}</td><td class="jc-num">${safe(p.quantity)}</td><td class="jc-money">₹ ${Number(p.unitPrice||0).toFixed(2)}</td><td class="jc-money">₹ ${(Number(p.quantity||0)*Number(p.unitPrice||0)).toFixed(2)}</td></tr>`).join("");
   return `<div class="jc-paper">
-    <div class="jc-paper-header"><div class="jc-paper-brand">${invoiceHeaderHTML}<div class="jc-paper-subtitle">VEHICLE SERVICE JOB CARD</div></div><div class="jc-paper-number"><b>${jcPreviewEscape(d.jobCardNo||"Draft Job Card")}</b><br>${jcPreviewEscape(formatDate(d.date))}</div></div>
-    <div class="jc-preview-section"><h3>Customer & Vehicle Details</h3><div class="jc-preview-grid">
-      ${line("Customer",d.customer)}${line("Phone",d.phone)}${line("Vehicle",d.vehicleModel)}${line("Registration",d.regNo)}${line("Odometer",d.odometer)}${line("Fuel Level",d.fuelLevel)}${line("Date Received",formatDate(d.date))}${line("Expected Delivery",formatDate(d.expectedDelivery))}${line("Job Card Status",d.status)}
-    </div></div>
-    <div class="jc-preview-section"><h3>Customer Complaints / Requested Work</h3><p class="jc-preline">${jcPreviewEscape(d.complaints||"—")}</p></div>
-    <div class="jc-preview-section"><h3>Initial Inspection / Vehicle Condition</h3><p class="jc-preline">${jcPreviewEscape(d.inspection||"—")}</p></div>
-    <div class="jc-preview-section"><h3>Works to be Performed</h3><table><thead><tr><th>#</th><th>Work Description</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="3">No work items recorded</td></tr>'}</tbody></table></div>
-    <div class="jc-preview-section"><h3>Parts Used</h3><table><thead><tr><th>#</th><th>Part Description</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead><tbody>${parts||'<tr><td colspan="5">No parts recorded</td></tr>'}</tbody></table></div>
-    <div class="jc-preview-section"><h3>Technician Remarks</h3><p class="jc-preline">${jcPreviewEscape(d.remarks||"—")}</p></div>
-    <div class="jc-paper-sign"><span>Customer Signature</span><span>Authorized Signature</span></div>
-    <div class="jc-paper-footer">JC Car Diagnostics · Job Card ${jcPreviewEscape(d.jobCardNo||"Draft")}</div>
+    <div class="jc-paper-header">
+      <div class="jc-paper-brand">${invoiceHeaderHTML}</div>
+    </div>
+    <div class="jc-paper-body">
+      <div class="jc-paper-title-row"><div><div class="jc-paper-title">VEHICLE SERVICE JOB CARD</div><div class="jc-paper-jobno">${safe(d.jobCardNo||"Draft Job Card")}</div></div><div class="jc-paper-date">${safe(formatDate(d.date))}</div></div>
+      <div class="jc-paper-section">
+        <h3>Customer &amp; Vehicle Details</h3>
+        <table class="jc-details-table"><tbody>
+          <tr>${detailCell("Customer",d.customer)}${detailCell("Phone",d.phone)}</tr>
+          <tr>${detailCell("Vehicle",d.vehicleModel)}${detailCell("Registration",d.regNo)}</tr>
+          <tr>${detailCell("Odometer",d.odometer)}${detailCell("Fuel Level",d.fuelLevel)}</tr>
+          <tr>${detailCell("Date Received",formatDate(d.date))}${detailCell("Expected Delivery",formatDate(d.expectedDelivery))}</tr>
+          <tr>${detailCell("Job Card Status",d.status)}<th></th><td></td></tr>
+        </tbody></table>
+      </div>
+      <div class="jc-paper-section"><h3>Customer Complaints / Requested Work</h3><div class="jc-paper-notes">${safe(d.complaints||"—")}</div></div>
+      <div class="jc-paper-section"><h3>Initial Inspection / Vehicle Condition</h3><div class="jc-paper-notes">${safe(d.inspection||"—")}</div></div>
+      <div class="jc-paper-section">
+        <h3>Works to be Performed</h3>
+        <table class="jc-paper-table"><thead><tr><th style="width:9%">#</th><th>Work Description</th><th style="width:23%">Status</th></tr></thead>
+        <tbody>${works||'<tr><td colspan="3" class="jc-empty">No work items recorded</td></tr>'}</tbody></table>
+      </div>
+      <div class="jc-paper-section">
+        <h3>Parts Used</h3>
+        <table class="jc-paper-table"><thead><tr><th style="width:8%">#</th><th>Part Description</th><th style="width:10%">Qty</th><th style="width:19%">Unit Price</th><th style="width:20%">Line Total</th></tr></thead>
+        <tbody>${parts||'<tr><td colspan="5" class="jc-empty">No parts recorded</td></tr>'}</tbody></table>
+      </div>
+      <div class="jc-paper-section"><h3>Technician Remarks</h3><div class="jc-paper-notes jc-remarks">${safe(d.remarks||"—")}</div></div>
+      <div class="jc-paper-signatures"><div><span></span><b>Customer Signature</b></div><div><span></span><b>Authorized Signature</b></div></div>
+      <div class="jc-paper-footer">JC Car Diagnostics · ${safe(d.jobCardNo||"Draft Job Card")}</div>
+    </div>
   </div>`;
 }
 function previewJobCard() {
@@ -1315,65 +1337,180 @@ async function createJobCardPDFBlob() {
   if(!window.html2canvas||!window.jspdf||!window.jspdf.jsPDF)throw new Error("PDF libraries are unavailable. Check your internet connection.");
   if(document.getElementById("jobcard-preview-modal").hidden)previewJobCard();
   const target=document.querySelector("#jobcard-preview-content .jc-paper");
-  const canvas=await html2canvas(target,{scale:2,backgroundColor:"#ffffff",useCORS:true});
+  const canvas=await html2canvas(target,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false});
   const {jsPDF}=window.jspdf;
   const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
-  const width=190,height=canvas.height*width/canvas.width;
-  let y=5,remaining=height;
-  const image=canvas.toDataURL("image/jpeg",0.94);
-  while(remaining>0){
-    const sliceHeight=Math.min(remaining,287);
-    pdf.addImage(image,"JPEG",10,y-(height-remaining),width,height);
-    remaining-=sliceHeight;
-    if(remaining>0){pdf.addPage();y=5;}
+  const pageWidth=190, pageHeight=277;
+  const pxPerPage=Math.floor(canvas.width*(pageHeight/pageWidth));
+  let pageIndex=0;
+  for(let top=0;top<canvas.height;top+=pxPerPage){
+    const sliceHeight=Math.min(pxPerPage,canvas.height-top);
+    const pageCanvas=document.createElement("canvas");
+    pageCanvas.width=canvas.width;
+    pageCanvas.height=sliceHeight;
+    const ctx=pageCanvas.getContext("2d");
+    ctx.fillStyle="#ffffff";ctx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
+    ctx.drawImage(canvas,0,top,canvas.width,sliceHeight,0,0,canvas.width,sliceHeight);
+    const image=pageCanvas.toDataURL("image/jpeg",0.96);
+    const renderedHeight=pageWidth*sliceHeight/canvas.width;
+    if(pageIndex>0)pdf.addPage();
+    pdf.addImage(image,"JPEG",10,10,pageWidth,renderedHeight,undefined,"FAST");
+    pageIndex++;
   }
   return pdf;
 }
-async function downloadJobCardPDF() {
-  try {const pdf=await createJobCardPDFBlob();pdf.save(jobCardPDFName());}
-  catch(e){alert("Could not create job card PDF: "+(e.message||e));}
+function downloadJobCardPDF() {
+  // Match the invoice workflow: open the browser print dialog, where the user can choose Save as PDF.
+  printJobCardPDF();
 }
 function printJobCardPDF() {
-  if(document.getElementById("jobcard-preview-modal").hidden)previewJobCard();
+  // Print from a hidden iframe to keep the user on the current page (no new tab).
+  if(document.getElementById("jobcard-preview-modal").hidden) previewJobCard();
   const content=document.getElementById("jobcard-preview-content").innerHTML;
-  const win=window.open("","_blank");
-  if(!win){alert("Please allow pop-ups to print the job card.");return;}
-  win.document.write(`<!doctype html><html><head><title>${jobCardPDFName()}</title><meta charset="utf-8"><style>${jobCardPrintCSS()}
-.jc-preview-dialog{width:min(900px,100%);max-height:92vh}
-.jc-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}
-#jobcard-preview-content{background:#e9edf2;padding:14px;overflow:auto}
-.jc-paper{background:#fff;color:#222;max-width:800px;margin:0 auto;padding:28px;box-shadow:0 2px 10px rgba(0,0,0,.08);font-family:Arial,sans-serif}
-.jc-paper-header{display:flex;justify-content:space-between;border-bottom:3px solid #c8102e;padding-bottom:12px}
-.jc-paper-header h1{margin:0;font-size:22px}
-.jc-paper-header p{margin:4px 0;font-size:12px;letter-spacing:2px}
-.jc-paper-number{text-align:right;font-size:12px}
-.jc-preview-section{margin:16px 0}
-.jc-preview-section h3{font-size:13px;background:#f1f2f4;padding:8px;margin:0 0 8px}
-.jc-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
-.jc-preview-field{display:flex;gap:8px;font-size:11px}
-.jc-preview-field b{min-width:120px}
-.jc-preline{white-space:pre-wrap;font-size:11px;min-height:18px}
-.jc-paper table{width:100%;border-collapse:collapse;font-size:10px}
-.jc-paper th,.jc-paper td{border:1px solid #bbb;padding:7px;text-align:left}
-.jc-paper th{background:#f5f5f5}
-.jc-paper-sign{display:flex;justify-content:space-between;margin-top:55px}
-.jc-paper-sign span{border-top:1px solid #555;width:38%;text-align:center;padding-top:7px;font-size:11px}
-.jc-paper-footer{text-align:center;border-top:1px solid #aaa;margin-top:28px;padding-top:8px;font-size:9px;color:#666}
+  let frame=document.getElementById("jc-print-frame");
+  if(frame) frame.remove();
+  frame=document.createElement("iframe");
+  frame.id="jc-print-frame";
+  frame.title="Job Card Print";
+  frame.style.position="fixed";
+  frame.style.right="0";
+  frame.style.bottom="0";
+  frame.style.width="0";
+  frame.style.height="0";
+  frame.style.border="0";
+  frame.style.visibility="hidden";
+  document.body.appendChild(frame);
+  const doc=frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(`<!doctype html><html><head><title>${jobCardPDFName()}</title><meta charset="utf-8"><style>${jobCardPrintCSS()}
+/* Preview uses the same measurements and typography as the A4 print output */
+#jobcard-preview-content{
+  background:#e8ebef;
+  padding:18px;
+  overflow:auto;
+}
+#jobcard-preview-content .jc-paper{
+  width:210mm;
+  min-width:210mm;
+  max-width:none;
+  margin:0 auto;
+  padding:0;
+  background:#fff;
+  color:#202124;
+  font-family:Arial,Helvetica,sans-serif;
+  font-size:10.5px;
+  line-height:1.28;
+  box-shadow:0 2px 14px rgba(0,0,0,.12);
+  box-sizing:border-box;
+}
+#jobcard-preview-content .jc-paper-header,
+#jobcard-preview-content .jc-paper-brand{
+  display:block;
+  width:210mm;
+  margin:0;
+  padding:0;
+  border:0;
+}
+#jobcard-preview-content .jc-paper-brand .brand{
+  display:block;
+  width:210mm!important;
+  max-width:none!important;
+  height:auto!important;
+  max-height:none!important;
+  object-fit:fill!important;
+  margin:0!important;
+  padding:0!important;
+}
+#jobcard-preview-content .jc-paper-body{padding:8mm 12mm 8mm}
+#jobcard-preview-content .jc-paper-title-row{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #bbb;padding:0 0 4mm;margin:0 0 6mm}
+#jobcard-preview-content .jc-paper-title{font-size:17pt;font-weight:800;color:#c8102e;letter-spacing:.3px}
+#jobcard-preview-content .jc-paper-jobno{font-size:13pt;font-weight:800;margin-top:1mm}
+#jobcard-preview-content .jc-paper-date{font-size:10pt;color:#444}
+#jobcard-preview-content .jc-paper-section{margin:4mm 0 0;break-inside:avoid;page-break-inside:avoid}
+#jobcard-preview-content .jc-paper-section h3{font-size:9pt;text-transform:uppercase;background:#f1f2f4;border-left:3px solid #c8102e;padding:2mm 2.5mm;margin:0 0 2mm;color:#222}
+#jobcard-preview-content .jc-details-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt;margin:0}
+#jobcard-preview-content .jc-details-table th{width:18%;text-align:left;font-weight:700;color:#454545;padding:2mm 2mm 2mm 1mm;border-bottom:1px solid #e4e6e8;vertical-align:top;background:#fff}
+#jobcard-preview-content .jc-details-table td{width:32%;padding:2mm 3mm 2mm 1mm;border-bottom:1px solid #e4e6e8;vertical-align:top;overflow-wrap:anywhere}
+#jobcard-preview-content .jc-details-table tr:last-child th,#jobcard-preview-content .jc-details-table tr:last-child td{border-bottom:0}
+#jobcard-preview-content .jc-paper-notes{border:1px solid #d9dce1;padding:2mm 2.5mm;min-height:7mm;white-space:pre-wrap;overflow-wrap:anywhere;font-size:8.5pt}
+#jobcard-preview-content .jc-remarks{min-height:9mm}
+#jobcard-preview-content .jc-paper-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
+#jobcard-preview-content .jc-paper-table th{background:#f5f5f6;font-weight:700;color:#333;text-align:left;border-top:1px solid #cfd2d7;border-bottom:1px solid #cfd2d7;padding:2mm}
+#jobcard-preview-content .jc-paper-table td{border-bottom:1px solid #e0e2e5;padding:1.8mm 2mm;vertical-align:top;overflow-wrap:anywhere}
+#jobcard-preview-content .jc-paper-table .jc-num{text-align:center}
+#jobcard-preview-content .jc-paper-table .jc-money{text-align:right;white-space:nowrap}
+#jobcard-preview-content .jc-status-tag{display:inline-block;border:1px solid #d7dbe0;border-radius:10px;padding:.5mm 2mm;font-size:7.5pt;white-space:nowrap}
+#jobcard-preview-content .jc-empty{text-align:center;color:#777;padding:3mm!important}
+#jobcard-preview-content .jc-paper-signatures{display:flex;justify-content:space-between;gap:20mm;margin:13mm 2mm 4mm}
+#jobcard-preview-content .jc-paper-signatures>div{width:42%;text-align:center;font-size:8pt}
+#jobcard-preview-content .jc-paper-signatures span{display:block;border-top:1px solid #555;margin-bottom:1.5mm}
+#jobcard-preview-content .jc-paper-footer{text-align:center;border-top:1px solid #d5d7da;margin-top:4mm;padding-top:2mm;font-size:7pt;color:#666}
+@media(max-width:850px){
+  #jobcard-preview-content .jc-paper{margin-left:0;margin-right:0}
+}
 
 
-.jc-paper-brand{flex:1;min-width:0;padding-right:12px}
-.jc-paper-brand .brand{display:block;width:100%;max-width:100%;height:auto;max-height:105px;object-fit:contain;object-position:left center}
-.jc-paper-subtitle{font-size:11px;letter-spacing:2px;font-weight:700;margin-top:5px;color:#333}
-.jc-paper-fallback-brand{font-size:22px;font-weight:800}
-.jc-paper-header{align-items:center;gap:16px}
-.jc-bottom-actions{display:flex;flex-wrap:wrap;gap:8px}
-@media(max-width:650px){.jc-bottom-actions button{flex:1 1 calc(50% - 8px)}}
+#jobcard-preview-content .jc-paper-body{padding:9mm 13mm 10mm}
+#jobcard-preview-content .jc-paper-section h3{margin-top:0}
+#jobcard-preview-content .jc-paper-notes{line-height:1.45;padding:3mm}
+#jobcard-preview-content .jc-paper-table th,
+#jobcard-preview-content .jc-paper-table td{padding:2.2mm 2.5mm}
 
-</style></head><body>${content}<script>window.onload=()=>window.print()<\/script></body></html>`);
-  win.document.close();
+</style></head><body>${content}</body></html>`);
+  doc.close();
+  const doPrint=async()=>{
+    try {
+      if(doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+      await Promise.all([...doc.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{
+        img.onload=resolve; img.onerror=resolve;
+      })));
+    } catch(e) {}
+    setTimeout(()=>{
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      } catch(e) {
+        alert("Unable to open print dialog. Please try again.");
+      }
+    },200);
+  };
+  if(doc.readyState==="complete") doPrint();
+  else frame.onload=doPrint;
 }
 function jobCardPrintCSS() {
-  return `@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;color:#222}.jc-paper{width:100%;box-sizing:border-box}.jc-paper-header{display:flex;justify-content:space-between;border-bottom:3px solid #c8102e;padding-bottom:12px}.jc-paper-header h1{margin:0;font-size:22px}.jc-paper-header p{margin:4px 0;font-size:12px;letter-spacing:2px}.jc-paper-number{text-align:right}.jc-preview-section{margin:16px 0;page-break-inside:avoid}.jc-preview-section h3{font-size:13px;background:#f1f2f4;padding:8px;margin:0 0 8px}.jc-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}.jc-preview-field{display:flex;gap:8px;font-size:11px}.jc-preview-field b{min-width:120px}.jc-preline{white-space:pre-wrap;font-size:11px;min-height:18px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#f5f5f5}.jc-paper-sign{display:flex;justify-content:space-between;margin-top:55px}.jc-paper-sign span{border-top:1px solid #555;width:38%;text-align:center;padding-top:7px;font-size:11px}.jc-paper-footer{text-align:center;border-top:1px solid #aaa;margin-top:28px;padding-top:8px;font-size:9px;color:#666}`;
+  return `@page{size:A4;margin:0}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;width:210mm;background:#fff;color:#202124;font-family:Arial,Helvetica,sans-serif}
+  .jc-paper{width:210mm;max-width:none;margin:0;padding:0;background:#fff;font-size:10.5px;line-height:1.28;box-shadow:none}
+  .jc-paper-header{display:block;width:210mm;margin:0;padding:0;border:0}
+  .jc-paper-brand{display:block;width:210mm;margin:0;padding:0}
+  .jc-paper-brand .brand{display:block;width:210mm!important;max-width:none!important;height:auto!important;max-height:none!important;object-fit:fill!important;margin:0!important;padding:0!important}
+  .jc-paper-body{padding:8mm 12mm 8mm}
+  .jc-paper-title-row{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #bbb;padding:0 0 4mm;margin:0 0 6mm}
+  .jc-paper-title{font-size:17pt;font-weight:800;color:#c8102e;letter-spacing:.3px}
+  .jc-paper-jobno{font-size:13pt;font-weight:800;margin-top:1mm}
+  .jc-paper-date{font-size:10pt;color:#444}
+  .jc-paper-section{margin:4mm 0 0;break-inside:avoid;page-break-inside:avoid}
+  .jc-paper-section h3{font-size:9pt;text-transform:uppercase;background:#f1f2f4;border-left:3px solid #c8102e;padding:2mm 2.5mm;margin:0 0 2mm;color:#222}
+  .jc-details-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5pt;margin:0}
+  .jc-details-table th{width:18%;text-align:left;font-weight:700;color:#454545;padding:2mm 2mm 2mm 1mm;border-bottom:1px solid #e4e6e8;vertical-align:top;background:#fff}
+  .jc-details-table td{width:32%;padding:2mm 3mm 2mm 1mm;border-bottom:1px solid #e4e6e8;vertical-align:top;overflow-wrap:anywhere}
+  .jc-details-table tr:last-child th,.jc-details-table tr:last-child td{border-bottom:0}
+  .jc-paper-notes{border:1px solid #d9dce1;padding:2mm 2.5mm;min-height:7mm;white-space:pre-wrap;overflow-wrap:anywhere;font-size:8.5pt}
+  .jc-remarks{min-height:9mm}
+  .jc-paper-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
+  .jc-paper-table th{background:#f5f5f6;font-weight:700;color:#333;text-align:left;border-top:1px solid #cfd2d7;border-bottom:1px solid #cfd2d7;padding:2mm 2mm}
+  .jc-paper-table td{border-bottom:1px solid #e0e2e5;padding:1.8mm 2mm;vertical-align:top;overflow-wrap:anywhere}
+  .jc-paper-table .jc-num{text-align:center}
+  .jc-paper-table .jc-money{text-align:right;white-space:nowrap}
+  .jc-status-tag{display:inline-block;border:1px solid #d7dbe0;border-radius:10px;padding:.5mm 2mm;font-size:7.5pt;white-space:nowrap}
+  .jc-empty{text-align:center;color:#777;padding:3mm!important}
+  .jc-paper-signatures{display:flex;justify-content:space-between;gap:20mm;margin:13mm 2mm 4mm}
+  .jc-paper-signatures>div{width:42%;text-align:center;font-size:8pt}
+  .jc-paper-signatures span{display:block;border-top:1px solid #555;margin-bottom:1.5mm}
+  .jc-paper-footer{text-align:center;border-top:1px solid #d5d7da;margin-top:4mm;padding-top:2mm;font-size:7pt;color:#666}
+  @media print{html,body{width:210mm;margin:0!important;padding:0!important}.jc-paper{width:210mm!important}.jc-paper-header,.jc-paper-brand,.jc-paper-brand .brand{width:210mm!important}}
+  `;
 }
 async function shareJobCardPDF() {
   try {
