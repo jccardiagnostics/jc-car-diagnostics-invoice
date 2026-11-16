@@ -691,16 +691,18 @@
     }
   }
   async function loadInvoiceHistory() {
-    if (!cloudUser || !cloudDb) return;
+    if (!cloudUser || !cloudDb) return false;
     const list = document.getElementById("history-list");
     list.innerHTML = '<p class="history-empty">Loading invoices...</p>';
     try {
       const snap = await cloudDb.collection("invoices").orderBy("createdAt", "desc").get();
       cachedInvoices = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       renderInvoiceHistory(cachedInvoices);
+      return true;
     } catch (e) {
       console.error(e);
       list.innerHTML = '<p class="history-empty">Unable to load invoices. Check Firestore setup and security rules.</p>';
+      return false;
     }
   }
   function renderInvoiceHistory(invoices) {
@@ -1246,13 +1248,19 @@ function showJobCardInvoicePicker(candidates, onConfirm) {
   });
 }
 
-function invoiceFromJobCard(id) {
+async function invoiceFromJobCard(id) {
   const j=cachedJobCards.find(x=>x.id===id);if(!j)return;
   activeJobCard=j;
   if(j.invoiceId) {
+    const loaded=await loadInvoiceHistory();
+    if(!loaded) {
+      alert("Could not refresh invoice history. Please check your internet connection and Firestore permissions, then try again.");
+      return;
+    }
     const inv=cachedInvoices.find(x=>x.id===j.invoiceId);
     if(inv){restoreInvoice(encodeURIComponent(inv.id));window.currentInvoiceJobCardId=id;openModule("invoices");return;}
-    alert("This job card has an invoice reference, but it was not found in the loaded invoice history. Refresh invoice history and try again.");return;
+    alert("The job card refers to invoice ID "+j.invoiceId+", but that invoice document is not present in the invoices collection. The job card link has been preserved.");
+    return;
   }
   startNewInvoice();
   window.activeJobCardId=id;window.currentInvoiceJobCardId=id;activeJobCard=j;
