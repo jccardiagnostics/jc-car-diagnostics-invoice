@@ -156,6 +156,7 @@
     .thankyou { margin-top:100px; }
   }
 
+  [hidden] { display:none !important; }
   .cloud-panel { margin:18px 0 22px; padding:15px; border:1px solid #d8dce2; border-radius:12px; background:#f8fafc; }
   .cloud-title-row,.history-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .cloud-title-row { font-size:15px; }
@@ -298,7 +299,7 @@
 </head>
 <body>
   <section class="cloud-panel" aria-label="Cloud invoice account">
-      <div class="cloud-title-row"><b>☁ Invoice Cloud</b><span id="cloud-status" class="cloud-status">Firebase setup required</span></div>
+      <div class="cloud-title-row"><b>☁ Invoice Cloud</b><span id="cloud-status" class="cloud-status">Connecting to Firebase…</span></div>
       <p class="cloud-help">Sign in to access the JC Car Diagnostics invoice system.</p>
       <div id="cloud-auth-form">
         <label for="cloud-email">Email address</label>
@@ -1332,8 +1333,7 @@ deleteInvoice=async function(encodedId){
 };
 document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("main-home-menu").hidden=true;
-  const oldAuth=cloudAuth;
-  // Firebase auth listener is installed by the original app; poll-free navigation is updated from its state callback below.
+  initializeFirebaseCloud();
 });
 </script>
 
